@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AsthmaSafety</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js for Graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- SCREEN 1: Language Selection -->
+        <section id="screen-language" class="screen active">
+            <div class="glass-card lang-card slide-up">
+                <h1 class="logo-text">Asthma<span class="accent">Safety</span></h1>
+                <p class="subtitle" id="lang-subtitle">Select your preferred language</p>
+                <div class="lang-options">
+                    <button class="btn btn-primary" onclick="setLanguage('en')">English</button>
+                    <button class="btn btn-secondary" onclick="setLanguage('hi')">हिंदी</button>
+                    <button class="btn btn-secondary" onclick="setLanguage('kn')">ಕನ್ನಡ</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 2: Profile Setup -->
+        <section id="screen-profile" class="screen">
+            <div class="glass-card profile-card slide-up">
+                <h2 id="profile-title">Profile Setup</h2>
+                <div class="form-group">
+                    <label id="lbl-name" for="userName">Name</label>
+                    <input type="text" id="userName" placeholder="Enter your name">
+                </div>
+                <div class="form-group row">
+                    <div class="col">
+                        <label id="lbl-age" for="userAge">Age</label>
+                        <input type="number" id="userAge" placeholder="Enter your age">
+                    </div>
+                    <div class="col">
+                        <label id="lbl-doctor" for="doctorMobile">Doctor Mobile No.</label>
+                        <input type="tel" id="doctorMobile" placeholder="+91 00000 00000">
+                    </div>
+                </div>
+
+                <div class="triggers-section">
+                    <h3 id="lbl-triggers">Select Triggers & Symptoms</h3>
+                    <div class="toggle-grid" id="symptoms-grid">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-large mt-4" id="btn-continue" onclick="completeProfile()">Continue to Dashboard</button>
+            </div>
+        </section>
+
+        <!-- SCREEN 3: Dashboard -->
+        <section id="screen-dashboard" class="screen">
+            <div class="dashboard-layout">
+                <!-- Sidebar -->
+                <aside class="sidebar glass-panel">
+                    <h1 class="sidebar-logo">Asthma<span class="accent">Safety</span></h1>
+                    <nav class="nav-menu">
+                        <a href="#" class="nav-item active" id="nav-dashboard" onclick="switchTab('dashboard')">Dashboard</a>
+                        <a href="#" class="nav-item" id="nav-device" onclick="switchTab('device')">Device Setup</a>
+                        <a href="#" class="nav-item" id="nav-reports" onclick="switchTab('reports')">Reports</a>
+                        <a href="#" class="nav-item" id="nav-alerts" onclick="switchTab('alerts')">Alerts</a>
+                        <a href="#" class="nav-item" id="nav-settings" onclick="switchTab('settings')">Settings</a>
+                        <a href="#" class="nav-item" id="nav-profile" onclick="switchTab('profile')">Profile</a>
+                    </nav>
+                </aside>
+
+                <!-- Main Content -->
+                <main class="main-content">
+                    <header class="top-bar glass-panel">
+                        <h2 id="dashboard-header">Overview</h2>
+                        <div class="user-info">
+                            <span id="display-username">User</span>
+                            <div class="avatar">U</div>
+                        </div>
+                    </header>
+
+                    <!-- Tabs Content -->
+                    <div class="tab-content" id="tab-dashboard">
+                        <div class="mode-selector mb-4">
+                            <button class="btn btn-primary" id="btn-with-device" onclick="setMode('device')">Device Monitoring</button>
+                            <button class="btn btn-secondary" id="btn-without-device" onclick="setMode('manual')">Without Device Monitoring</button>
+                        </div>
+                        
+                        <!-- AI Analysis Panel (Shared) -->
+                        <div class="glass-card ai-panel mb-4">
+                            <div class="ai-header">
+                                <h3 id="lbl-ai-analysis">AI Risk Analysis</h3>
+                                <div class="risk-badge" id="risk-badge">Analyzing...</div>
+                            </div>
+                            <p id="ai-message">Evaluating current mode data...</p>
+                            <button class="btn btn-alert hidden" id="btn-sms-alert" onclick="triggerSMSAlert()">Send SMS Report to Doctor</button>
+                        </div>
+
+                        <!-- Prediction Section (Visible for Low/Medium Risk) -->
+                        <div id="prediction-section" class="glass-card mb-4 hidden">
+                            <div class="ai-header">
+                                <h3>Asthma Attack Prediction (24h)</h3>
+                                <div id="prediction-alert" class="risk-badge hidden">Predicted Risk Alert!</div>
+                            </div>
+                            <div class="chart-container mb-4" style="height: 350px;">
+                                <canvas id="predictionChart"></canvas>
+                            </div>
+                            <div id="prediction-precautions" class="recommendations">
+                                <h4 id="lbl-precautions">AI Predicted Precautions</h4>
+                                <ul id="prediction-precautions-list">
+                                    <!-- Populated by JS -->
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- DEVICE MONITORING VIEW -->
+                        <div id="view-device" class="view-section">
+                            <div id="device-not-connected" class="glass-card text-center mb-4">
+                                <h3 id="lbl-not-connected">Device Not Connected</h3>
+                                <p class="text-muted mb-4">Please connect your ESP32 Bluetooth device to view real-time data.</p>
+                                <button class="btn btn-primary" onclick="switchTab('device')">Go to Device Setup</button>
+                            </div>
+
+                            <div id="device-stats" class="hidden">
+                                <!-- Stats Grid -->
+                                <div class="stats-grid mb-4">
+                                    <div class="stat-card glass-card">
+                                        <div class="stat-icon" id="icon-dev-temp">🌡️</div>
+                                        <h4 id="lbl-dev-temp">Temperature</h4>
+                                        <div class="stat-value" id="val-dev-temp">--°C</div>
+                                    </div>
+                                    <div class="stat-card glass-card">
+                                        <div class="stat-icon" id="icon-dev-hum">💧</div>
+                                        <h4 id="lbl-dev-hum">Humidity</h4>
+                                        <div class="stat-value" id="val-dev-hum">--%</div>
+                                    </div>
+                                    <div class="stat-card glass-card">
+                                        <div class="stat-icon" id="icon-dev-aqi">💨</div>
+                                        <h4 id="lbl-dev-aqi">Air Quality (MQ2)</h4>
+                                        <div class="stat-value" id="val-dev-aqi">-- ppm</div>
+                                    </div>
+                                </div>
+                                <!-- Charts Section -->
+                                <div class="charts-grid mb-4">
+                                    <div class="chart-container glass-card">
+                                        <h4 id="lbl-trend-temp">Device Temperature & Humidity</h4>
+                                        <canvas id="devTempHumChart"></canvas>
+                                    </div>
+                                    <div class="chart-container glass-card">
+                                        <h4 id="lbl-trend-aqi">Device Air Quality History</h4>
+                                        <canvas id="devAqiChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MANUAL / MOBILE MONITORING VIEW -->
+                        <div id="view-manual" class="view-section hidden">
+                            <div class="glass-card mb-4">
+                                <h3>Manual Input & Mobile Sensors</h3>
+                                <p class="text-muted mb-4">Enter environmental data manually or use mobile sensors like the microphone.</p>
+                                
+                                <div class="form-group row">
+                                    <div class="col">
+                                        <label>Temperature (°C)</label>
+                                        <input type="number" id="manual-temp" value="25" onchange="updateManualData()">
+                                    </div>
+                                    <div class="col">
+                                        <label>Humidity (%)</label>
+                                        <input type="number" id="manual-hum" value="50" onchange="updateManualData()">
+                                    </div>
+                                    <div class="col">
+                                        <label>Air Quality (ppm)</label>
+                                        <input type="number" id="manual-aqi" value="40" onchange="updateManualData()">
+                                    </div>
+                                </div>
+                                
+                                <div class="mic-section mt-4" style="border-top: var(--glass-border); padding-top: 1rem;">
+                                    <h4>Mobile Microphone Sensor</h4>
+                                    <p class="text-muted mb-2">Detect coughing and wheezing using your device's microphone.</p>
+                                    <button class="btn btn-secondary" id="btn-mic" onclick="toggleMicrophone()">Start Microphone Detection</button>
+                                    <span id="mic-status" style="margin-left: 1rem;" class="status-indicator status-disconnected">Mic Off</span>
+                                </div>
+                            </div>
+
+                            <!-- Manual Stats Grid -->
+                            <div class="stats-grid mb-4">
+                                <div class="stat-card glass-card">
+                                    <div class="stat-icon" id="icon-man-temp">🌡️</div>
+                                    <h4>Temperature</h4>
+                                    <div class="stat-value" id="val-man-temp">25°C</div>
+                                </div>
+                                <div class="stat-card glass-card">
+                                    <div class="stat-icon" id="icon-man-hum">💧</div>
+                                    <h4>Humidity</h4>
+                                    <div class="stat-value" id="val-man-hum">50%</div>
+                                </div>
+                                <div class="stat-card glass-card">
+                                    <div class="stat-icon" id="icon-man-aqi">💨</div>
+                                    <h4>Air Quality</h4>
+                                    <div class="stat-value" id="val-man-aqi">40 ppm</div>
+                                </div>
+                                <div class="stat-card glass-card">
+                                    <div class="stat-icon" id="icon-man-cough">🗣️</div>
+                                    <h4>Cough / Wheeze</h4>
+                                    <div class="stat-value" id="val-man-cough">0</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Shared Recommendations -->
+                        <div class="glass-card recommendations mb-4">
+                            <h4 id="lbl-recommendations">Recommendations</h4>
+                            <ul id="recommendations-list">
+                                <li>Monitor your symptoms closely.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Device Monitoring Setup Tab -->
+                    <div class="tab-content hidden" id="tab-device">
+                        <div class="glass-card text-center slide-up">
+                            <h2 id="lbl-bluetooth-setup">Bluetooth Device Setup</h2>
+                            <p class="text-muted mb-4" id="lbl-bluetooth-desc">Connect to your ESP32 device to read real-time DHT11 and MQ2 sensor data.</p>
+                            <button class="btn btn-primary btn-large mb-4" id="btn-connect" onclick="connectBluetooth()">Connect to Device</button>
+                            <button class="btn btn-secondary btn-large mb-4" id="btn-disconnect" onclick="disconnectBluetooth()" style="display: none;">Disconnect Device</button>
+                            <div id="bt-status" class="status-indicator status-disconnected">Status: Disconnected</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Other Tabs Placeholders -->
+                    <div class="tab-content hidden" id="tab-reports"><div class="glass-card"><h2>Reports</h2><p>Historical data will appear here.</p></div></div>
+                    <div class="tab-content hidden" id="tab-alerts"><div class="glass-card"><h2>Alerts</h2><ul id="alerts-history-list"></ul></div></div>
+                    <div class="tab-content hidden" id="tab-settings"><div class="glass-card"><h2>Settings</h2><p>Application settings.</p></div></div>
+                    <div class="tab-content hidden" id="tab-profile"><div class="glass-card"><h2>Profile Details</h2><p>View and edit profile.</p></div></div>
+
+                </main>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modals & Overlays -->
+    <div id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
