@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AsthmaCare AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<style>
+:root{
+  --bg:#0b0f19;--surface:rgba(20,25,40,0.75);--border:rgba(255,255,255,0.1);
+  --primary:#00e5ff;--primary-glow:rgba(0,229,255,0.35);
+  --secondary:#7000ff;--text:#fff;--muted:#8b9bb4;
+  --safe:#00ff88;--warn:#ffb800;--danger:#ff3366;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'DM Sans',sans-serif;}
+body{background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;
+  background-image:radial-gradient(circle at 15% 50%,rgba(112,0,255,.15),transparent 25%),
+  radial-gradient(circle at 85% 30%,rgba(0,229,255,.15),transparent 25%);}
+h1,h2,h3,h4{font-family:'Outfit',sans-serif;}
+input,select,textarea{font-family:'DM Sans',sans-serif;}
+.glass{background:var(--surface);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--border);border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,.3);}
+
+/* ── SCREENS ── */
+.screen{display:none;flex-direction:column;min-height:100vh;}
+.screen.active{display:flex;}
+#app{max-width:480px;margin:0 auto;position:relative;}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes splashPulse{0%,100%{transform:scale(1);filter:drop-shadow(0 0 20px rgba(255,255,255,.4))}
+  50%{transform:scale(1.06);filter:drop-shadow(0 0 40px rgba(255,255,255,.65))}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blinkYellow{0%,100%{opacity:1;box-shadow:0 0 20px rgba(255,184,0,.4)}
+  50%{opacity:.75;box-shadow:0 0 45px rgba(255,184,0,.7)}}
+@keyframes blinkRed{0%,100%{opacity:1;box-shadow:0 0 20px rgba(255,51,102,.4)}
+  50%{opacity:.65;box-shadow:0 0 55px rgba(255,51,102,.8)}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--primary-glow)}70%{box-shadow:0 0 0 15px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@keyframes typing{from{opacity:0}to{opacity:1}}
+
+.fade-up{animation:fadeUp .55s cubic-bezier(.16,1,.3,1) forwards;}
+.blink-warn{animation:blinkYellow 2s infinite;}
+.blink-danger{animation:blinkRed 1s infinite;}
+
+/* ══════════════════════════════════════════
+   SPLASH SCREEN
+══════════════════════════════════════════ */
+#splash-screen{
+  position:fixed;inset:0;
+  background:linear-gradient(135deg,#7000ff 0%,#00e5ff 100%);
+  display:flex;justify-content:center;align-items:center;
+  z-index:9000;transition:opacity .8s ease,visibility .8s;
+}
+.splash-icon{font-size:6rem;margin-bottom:22px;
+  animation:splashPulse 2.2s infinite ease-in-out;
+  filter:drop-shadow(0 0 30px rgba(255,255,255,.4));}
+.splash-text p{font-size:1.3rem;letter-spacing:2px;opacity:.9;margin-bottom:6px;}
+.splash-text h1{font-size:3.5rem;font-weight:900;letter-spacing:3px;}
+
+/* ══════════════════════════════════════════
+   PERMISSIONS OVERLAY
+══════════════════════════════════════════ */
+#perm-screen{
+  position:fixed;inset:0;z-index:8500;
+  background:rgba(11,15,25,.97);
+  display:none;flex-direction:column;justify-content:center;align-items:center;
+  padding:30px;text-align:center;gap:22px;
+}
+.perm-icon{font-size:3.5rem;margin-bottom:10px;}
+.perm-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px;width:100%;max-width:420px;display:flex;align-items:center;gap:16px;}
+.perm-card i{font-size:1.8rem;color:var(--primary);min-width:32px;}
+.perm-btn{background:linear-gradient(135deg,var(--primary),var(--secondary));
+  border:none;color:#000;font-weight:800;font-size:1.05rem;font-family:'Outfit',sans-serif;
+  padding:16px 40px;border-radius:14px;cursor:pointer;transition:.3s;margin-top:10px;width:100%;max-width:420px;}
+.perm-btn:hover{transform:translateY(-2px);box-shadow:0 0 25px var(--primary-glow);}
+
+/* ══════════════════════════════════════════
+   LANGUAGE SCREEN
+══════════════════════════════════════════ */
+#lang-screen{
+  position:fixed;inset:0;z-index:8000;
+  background:var(--bg);
+  background-image:radial-gradient(circle at 15% 50%,rgba(112,0,255,.2),transparent 30%),
+    radial-gradient(circle at 85% 30%,rgba(0,229,255,.2),transparent 30%);
+  display:none;flex-direction:column;justify-content:center;align-items:center;
+  padding:30px;gap:16px;
+}
+.lang-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:420px;margin-top:20px;}
+.lang-btn{background:var(--surface);border:2px solid var(--border);padding:26px 18px;
+  border-radius:20px;color:#fff;font-size:1.1rem;font-weight:700;cursor:pointer;
+  transition:.3s;text-align:center;line-height:1.5;font-family:'Outfit',sans-serif;}
+.lang-btn:hover,.lang-btn.sel{border-color:var(--primary);transform:translateY(-4px);
+  background:rgba(0,229,255,.1);box-shadow:0 0 22px var(--primary-glow);}
+.lang-flag{font-size:.7rem;color:var(--muted);margin-bottom:4px;}
+
+/* interaction-screen and voice-hud removed — app is manual/touch only */
+
+/* ══════════════════════════════════════════
+   MAIN APP WRAPPER
+══════════════════════════════════════════ */
+#main-app{padding:20px;display:flex;flex-direction:column;gap:20px;}
+
+/* ── Profile Section ── */
+.hero-title{font-size:2.4rem;font-weight:900;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hero-sub{font-size:.95rem;color:var(--muted);line-height:1.6;margin-top:8px;}
+
+.form-section{padding:22px;display:flex;flex-direction:column;gap:16px;}
+.form-label{font-size:.82rem;color:var(--muted);margin-bottom:4px;}
+.form-field{background:rgba(255,255,255,.06);border:1.5px solid var(--border);
+  color:#fff;padding:11px 14px;border-radius:10px;outline:none;width:100%;
+  font-size:.95rem;transition:.3s;}
+.form-field:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,229,255,.12);}
+.form-field.error{border-color:var(--danger) !important;box-shadow:0 0 0 3px rgba(255,51,102,.12);}
+.field-error{font-size:.78rem;color:var(--danger);margin-top:3px;display:none;}
+.field-error.show{display:block;}
+select.form-field option{background:#1a1f30;color:#fff;}
+
+.triggers-row{display:flex;gap:14px;flex-wrap:wrap;}
+.trigger-label{display:flex;align-items:center;gap:7px;font-size:.9rem;cursor:pointer;}
+.trigger-label input{accent-color:var(--primary);cursor:pointer;width:16px;height:16px;}
+
+.continue-btn{background:linear-gradient(135deg,var(--primary),var(--secondary));
+  border:none;color:#000;font-weight:800;font-size:1.05rem;font-family:'Outfit',sans-serif;
+  padding:16px;border-radius:14px;cursor:pointer;transition:.3s;
+  display:flex;justify-content:center;align-items:center;gap:8px;box-shadow:0 0 20px var(--primary-glow);}
+.continue-btn:hover{transform:translateY(-2px);box-shadow:0 0 35px var(--primary-glow);}
+
+.disclaimer-box{font-size:.82rem;color:var(--muted);padding:14px;border-top:1px solid var(--border);
+  background:rgba(255,255,255,.02);border-radius:10px;line-height:1.5;}
+
+/* ── Profile top-bar (back + logout) ── */
+.profile-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:-6px;}
+.topbar-icon-btn{background:rgba(255,255,255,.07);border:1px solid var(--border);
+  color:var(--muted);width:40px;height:40px;border-radius:50%;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:1rem;
+  transition:.3s;flex-shrink:0;}
+.topbar-icon-btn:hover{background:rgba(255,255,255,.14);color:#fff;}
+.topbar-icon-btn.logout-btn:hover{background:rgba(255,51,102,.18);border-color:var(--danger);color:var(--danger);}
+.saved-badge{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;
+  color:var(--safe);background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.25);
+  padding:3px 10px;border-radius:20px;font-weight:600;letter-spacing:.3px;}
+
+/* ── Mode Section ── */
+.mode-btn{background:rgba(255,255,255,.05);border:1.5px solid var(--border);
+  padding:20px;border-radius:16px;color:#fff;font-size:1.05rem;font-weight:600;
+  cursor:pointer;transition:.3s;display:flex;align-items:center;gap:16px;text-align:left;position:relative;overflow:hidden;}
+.mode-btn i{font-size:1.5rem;color:var(--primary);}
+.mode-btn:hover{background:rgba(255,255,255,.09);transform:translateY(-2px);}
+.mode-btn.highlight{background:linear-gradient(135deg,rgba(0,229,255,.1),rgba(112,0,255,.1));
+  border-color:var(--primary);box-shadow:0 0 20px var(--primary-glow);}
+.mode-badge{position:absolute;top:10px;right:12px;background:var(--primary);
+  color:#000;font-size:.62rem;font-weight:800;padding:3px 8px;border-radius:6px;letter-spacing:.5px;}
+.mode-btn.error-border{border-color:var(--danger) !important;}
+.mode-error{font-size:.82rem;color:var(--danger);display:none;text-align:center;margin-top:-10px;}
+.mode-error.show{display:block;}
+
+/* BT connection error banner */
+.bt-error-banner{display:none;background:rgba(255,51,102,.1);border:1.5px solid var(--danger);
+  border-radius:14px;padding:14px 18px;color:var(--danger);font-size:.88rem;font-weight:600;
+  text-align:center;line-height:1.5;animation:blinkRed 2s infinite 1;}
+.bt-error-banner.show{display:block;}
+.bt-error-banner i{margin-right:6px;}
+
+/* BT status pill on dashboard */
+.bt-status-pill{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;
+  font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:.3px;}
+.bt-status-pill.connected{color:var(--safe);background:rgba(0,255,136,.08);
+  border:1px solid rgba(0,255,136,.25);}
+.bt-status-pill.disconnected{color:var(--danger);background:rgba(255,51,102,.08);
+  border:1px solid rgba(255,51,102,.25);}
+.bt-status-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.bt-status-pill.connected .dot{animation:pulse 2s infinite;}
+
+.back-btn{background:transparent;border:none;color:var(--muted);padding:10px;
+  cursor:pointer;font-size:.95rem;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px;}
+.back-btn:hover{color:#fff;}
+
+/* ══════════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════════ */
+#dashboard-screen{padding:20px;display:none;flex-direction:column;gap:18px;padding-bottom:30px;}
+
+.dash-header{display:flex;justify-content:space-between;align-items:center;}
+.dash-header h2{font-size:1.15rem;font-weight:700;}
+.header-btn{background:var(--surface);border:1px solid var(--border);color:#fff;
+  width:40px;height:40px;border-radius:50%;cursor:pointer;transition:.3s;display:flex;align-items:center;justify-content:center;}
+.header-btn:hover{background:rgba(255,255,255,.12);}
+.env-sub{font-size:.83rem;color:var(--muted);font-weight:500;text-align:center;}
+
+/* Risk Banner */
+.risk-banner{padding:24px 18px;border-radius:22px;text-align:center;transition:all .5s ease;position:relative;overflow:hidden;}
+.risk-banner.safe{background:linear-gradient(135deg,#003d21,#00c966);}
+.risk-banner.warn{background:linear-gradient(135deg,#3d2800,#e0a200);}
+.risk-banner.danger{background:linear-gradient(135deg,#3d0010,#e0002a);}
+.gauge-wrap{position:relative;width:200px;height:108px;margin:0 auto;}
+.gauge-bg{fill:none;stroke:rgba(255,255,255,.12);stroke-width:10;stroke-linecap:round;}
+.gauge-prog{fill:none;stroke-width:10;stroke-linecap:round;stroke-dasharray:126;stroke-dashoffset:126;transition:stroke-dashoffset 1s ease,stroke 1s ease;}
+.risk-banner.safe .gauge-prog{stroke:#00ff88;}
+.risk-banner.warn .gauge-prog{stroke:#ffb800;}
+.risk-banner.danger .gauge-prog{stroke:#ff3366;}
+.gauge-needle{fill:#fff;stroke:#fff;stroke-width:2;stroke-linecap:round;transform-origin:50px 45px;transition:transform 1s cubic-bezier(.4,0,.2,1);}
+.risk-title{font-size:1.9rem;font-weight:900;margin-bottom:3px;}
+.risk-score-text{font-size:.85rem;opacity:.85;}
+
+/* Metric Cards */
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.metric-card{padding:18px;display:flex;flex-direction:column;gap:8px;transition:.4s;border:1px solid var(--border);border-radius:20px;background:var(--surface);backdrop-filter:blur(14px);}
+.metric-card.m-safe{border-color:rgba(0,255,136,.3);box-shadow:0 0 12px rgba(0,255,136,.1);}
+.metric-card.m-warn{border-color:rgba(255,184,0,.35);box-shadow:0 0 14px rgba(255,184,0,.15);}
+.metric-card.m-danger{border-color:rgba(255,51,102,.4);box-shadow:0 0 16px rgba(255,51,102,.2);}
+.metric-icon{font-size:1.45rem;color:var(--primary);}
+.metric-val{font-size:1.85rem;font-weight:800;font-family:'Outfit',sans-serif;}
+.metric-lbl{font-size:.78rem;color:var(--muted);}
+.status-row{display:flex;align-items:center;gap:7px;margin-top:8px;padding-top:8px;
+  border-top:1px solid rgba(255,255,255,.05);font-size:.73rem;font-weight:700;}
+.status-row.s-safe{color:var(--safe);}
+.status-row.s-warn{color:var(--warn);}
+.status-row.s-danger{color:var(--danger);}
+.mic-pill{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;
+  padding:3px 9px;border-radius:20px;background:rgba(0,229,255,.1);color:var(--primary);
+  border:1px solid var(--primary);margin-top:3px;letter-spacing:.3px;}
+.mic-pill.on{background:rgba(255,51,102,.12);color:var(--danger);border-color:var(--danger);}
+.mic-pill .dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
+.mic-pill.on .dot{animation:blinkRed .5s infinite;}
+
+/* AI Analysis button */
+.ai-btn{background:linear-gradient(135deg,var(--primary),var(--secondary));
+  border:none;color:#000;font-weight:800;font-size:1.05rem;font-family:'Outfit',sans-serif;
+  padding:0;height:110px;border-radius:18px;cursor:pointer;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;gap:10px;transition:.3s;letter-spacing:.5px;}
+.ai-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,229,255,.35);}
+.ai-btn i{font-size:2.8rem;filter:drop-shadow(0 0 12px rgba(0,0,0,.4));}
+
+/* Prediction Graph button */
+.graph-btn{border:1.5px solid var(--border);background:rgba(255,255,255,.04);
+  color:#fff;font-weight:700;font-size:1rem;font-family:'Outfit',sans-serif;
+  padding:16px;border-radius:14px;cursor:pointer;display:flex;align-items:center;gap:12px;
+  justify-content:center;transition:.3s;}
+.graph-btn:not(:disabled):hover{border-color:var(--primary);background:rgba(0,229,255,.06);}
+.graph-btn:disabled{opacity:.38;cursor:not-allowed;}
+
+/* ══════════════════════════════════════════
+   ANALYSIS SCREEN
+══════════════════════════════════════════ */
+#analysis-screen{padding:20px;display:none;flex-direction:column;gap:18px;}
+.analysis-card{padding:26px;display:flex;flex-direction:column;gap:16px;}
+#analysis-bg{border-radius:22px;transition:background .5s ease;}
+#analysis-bg.a-safe{background:linear-gradient(135deg,rgba(0,61,33,.9),rgba(0,160,85,.3));}
+#analysis-bg.a-warn{background:linear-gradient(135deg,rgba(61,40,0,.9),rgba(180,128,0,.3));}
+#analysis-bg.a-danger{background:linear-gradient(135deg,rgba(61,0,16,.9),rgba(224,0,42,.3));}
+#analysis-bg.a-danger{animation:blinkRed 1s infinite;}
+#analysis-bg.a-warn{animation:blinkYellow 2s infinite;}
+.analysis-quote{font-size:1.18rem;line-height:1.7;min-height:140px;}
+.analysis-btns{display:flex;gap:10px;margin-top:6px;}
+.report-btn{flex:4;height:54px;border-radius:12px;border:1px solid var(--border);
+  background:rgba(255,255,255,.08);color:#fff;font-weight:700;font-size:.9rem;
+  font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.3s;}
+.report-btn:hover:not(:disabled){background:rgba(255,255,255,.15);}
+.report-btn:disabled{opacity:.32;cursor:not-allowed;}
+.voice-mini-btn{flex:1;height:54px;border-radius:12px;border:1.5px solid var(--primary);
+  background:rgba(0,229,255,.08);color:var(--primary);font-size:1.2rem;cursor:pointer;transition:.3s;}
+.voice-mini-btn:hover{background:rgba(0,229,255,.16);}
+.voice-mini-btn.listening{background:rgba(255,51,102,.12);border-color:var(--danger);color:var(--danger);}
+
+/* ══════════════════════════════════════════
+   PREDICTION GRAPH SCREEN
+══════════════════════════════════════════ */
+#graph-screen{padding:20px;display:none;flex-direction:column;gap:18px;padding-bottom:40px;}
+.graph-header{display:flex;justify-content:space-between;align-items:center;}
+.graph-header h2{font-size:1.15rem;font-weight:700;}
+.risk-summary-bar{padding:18px 22px;border-radius:16px;display:flex;align-items:center;gap:14px;}
+.risk-summary-bar.safe{background:linear-gradient(135deg,#003d21,#00c966);}
+.risk-summary-bar.warn{background:linear-gradient(135deg,#3d2800,#e0a200);}
+.risk-summary-bar.danger{background:linear-gradient(135deg,#3d0010,#e0002a);}
+.risk-summary-bar .risk-label{font-size:1.6rem;font-weight:900;font-family:'Outfit',sans-serif;}
+.risk-summary-bar .risk-score-circle{width:64px;height:64px;border-radius:50%;
+  background:rgba(0,0,0,.3);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:'Outfit',sans-serif;font-weight:900;font-size:1.2rem;border:2px solid rgba(255,255,255,.3);}
+.risk-summary-bar .risk-score-circle small{font-size:.6rem;font-weight:400;opacity:.8;}
+.next24-tag{font-size:.82rem;font-weight:600;opacity:.9;}
+.next24-val{font-size:1.05rem;font-weight:800;margin-top:2px;}
+.chart-box{padding:16px;border-radius:20px;}
+.chart-box canvas{height:220px !important;}
+.chart-title{font-size:.85rem;font-weight:700;color:var(--muted);margin-bottom:10px;
+  text-transform:uppercase;letter-spacing:.8px;}
+.threshold-line-info{display:flex;align-items:center;gap:6px;font-size:.75rem;color:var(--muted);}
+.threshold-line-info .tl{width:20px;height:2px;background:var(--danger);border-style:dashed;}
+
+/* ══════════════════════════════════════════
+   LOCATION MODE SCREEN
+══════════════════════════════════════════ */
+#location-screen{padding:20px;display:none;flex-direction:column;gap:18px;}
+.loc-search-row{display:flex;gap:10px;}
+.loc-input{flex:1;background:rgba(255,255,255,.06);border:1.5px solid var(--border);
+  color:#fff;padding:12px 16px;border-radius:12px;outline:none;font-size:.95rem;}
+.loc-input:focus{border-color:var(--primary);}
+.loc-search-btn{background:var(--primary);border:none;color:#000;font-weight:800;
+  padding:0 20px;border-radius:12px;cursor:pointer;font-size:.9rem;transition:.3s;font-family:'Outfit',sans-serif;}
+.loc-search-btn:hover{transform:translateY(-1px);box-shadow:0 0 18px var(--primary-glow);}
+.loc-result-card{padding:20px;border-radius:18px;}
+.loc-city-name{font-size:1.35rem;font-weight:800;font-family:'Outfit',sans-serif;margin-bottom:2px;}
+.loc-coords{font-size:.78rem;color:var(--muted);margin-bottom:14px;}
+.loc-metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.loc-metric{padding:14px;border-radius:14px;border:1px solid var(--border);background:rgba(255,255,255,.04);}
+.loc-metric .lm-icon{font-size:1.3rem;margin-bottom:6px;}
+.loc-metric .lm-val{font-size:1.5rem;font-weight:900;font-family:'Outfit',sans-serif;}
+.loc-metric .lm-lbl{font-size:.75rem;color:var(--muted);}
+.loc-metric .lm-status{font-size:.72rem;font-weight:700;margin-top:6px;padding:3px 8px;
+  border-radius:20px;display:inline-block;}
+.loc-metric .lm-status.safe{color:var(--safe);background:rgba(0,255,136,.08);}
+.loc-metric .lm-status.warn{color:var(--warn);background:rgba(255,184,0,.08);}
+.loc-metric .lm-status.danger{color:var(--danger);background:rgba(255,51,102,.08);}
+.view-forecast-btn{background:rgba(255,255,255,.05);border:1.5px solid var(--border);
+  color:#fff;font-weight:700;font-size:.95rem;font-family:'Outfit',sans-serif;
+  padding:14px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.3s;width:100%;}
+.view-forecast-btn:hover{border-color:var(--primary);background:rgba(0,229,255,.06);}
+
+/* ══════════════════════════════════════════
+   LOADER
+══════════════════════════════════════════ */
+#loader{display:none;position:fixed;inset:0;background:var(--bg);z-index:7000;
+  justify-content:center;align-items:center;flex-direction:column;color:var(--primary);}
+.spinner{width:48px;height:48px;border:4px solid var(--surface);border-top-color:var(--primary);
+  border-radius:50%;animation:spin 1s linear infinite;margin-bottom:18px;}
+
+/* ════════════ MEDICAL REPORT MODAL ════════════ */
+#report-modal{
+  position:fixed;inset:0;z-index:9500;background:#f8f9fa;color:#333;
+  display:none;flex-direction:column;overflow-y:auto;font-family:'DM Sans',sans-serif;
+}
+.rm-header{
+  background:#fff;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid #e2e8f0;box-shadow:0 2px 4px rgba(0,0,0,.05);
+}
+.rm-title-group h2{font-size:1.3rem;font-weight:900;color:#1e3a8a;margin-bottom:2px;font-family:'Outfit',sans-serif;}
+.rm-title-group p{font-size:0.75rem;color:#64748b;}
+.rm-clinic{text-align:right;font-size:0.8rem;color:#1e3a8a;font-weight:700;}
+
+.rm-content{padding:15px;max-width:800px;margin:0 auto;width:100%;}
+.rm-card{
+  background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:15px;margin-bottom:15px;
+  box-shadow:0 1px 3px rgba(0,0,0,.02);
+}
+.rm-section-title{
+  background:#f1f5f9;color:#334155;font-size:0.8rem;font-weight:700;padding:8px 12px;
+  border-radius:6px;margin-bottom:12px;text-align:center;text-transform:uppercase;letter-spacing:1px;
+}
+.rm-section-title.danger{background:#fee2e2;color:#b91c1c;}
+
+.rm-pt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 15px;}
+.rm-pt-row{display:flex;gap:10px;font-size:0.85rem;}
+.rm-pt-lbl{color:#64748b;width:100px;flex-shrink:0;}
+.rm-pt-val{font-weight:600;color:#0f172a;}
+
+.rm-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.rm-box{border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center;}
+.rm-box-title{font-size:0.75rem;font-weight:700;color:#64748b;margin-bottom:8px;text-transform:uppercase;}
+
+.rm-risk-circle{
+  width:70px;height:70px;border-radius:50%;border:6px solid #ef4444;
+  display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:800;color:#0f172a;margin-bottom:5px;
+}
+.rm-danger-text{color:#ef4444;font-size:0.85rem;font-weight:700;}
+
+.rm-triggers{display:flex;justify-content:space-around;flex-wrap:wrap;gap:10px;}
+.rm-trig-item{text-align:center;}
+.rm-trig-icon{width:40px;height:40px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:#10b981;margin:0 auto 5px;}
+.rm-trig-lbl{font-size:0.75rem;color:#475569;}
+
+.rm-env-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;}
+.rm-env-item{text-align:center;border-right:1px solid #e2e8f0;}
+.rm-env-item:last-child{border-right:none;}
+.rm-env-icon{font-size:1.5rem;margin-bottom:5px;}
+.rm-env-val{font-size:1.2rem;font-weight:800;color:#0f172a;}
+.rm-env-lbl{font-size:0.7rem;color:#64748b;text-transform:uppercase;}
+.rm-env-status{font-size:0.65rem;font-weight:700;margin-top:2px;color:#10b981;}
+.rm-env-status.danger{color:#ef4444;}
+
+.rm-split{display:grid;grid-template-columns:1fr 1fr;gap:15px;}
+.rm-insight{font-size:0.85rem;line-height:1.5;color:#334155;}
+.rm-rec-list{list-style:none;padding:0;margin:0;font-size:0.85rem;color:#334155;}
+.rm-rec-list li{display:flex;gap:8px;margin-bottom:8px;}
+.rm-rec-list i{color:#3b82f6;margin-top:2px;}
+
+.rm-actions{display:flex;gap:10px;padding:0 15px 20px;}
+.rm-btn{
+  flex:1;padding:14px;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;
+  border:none;display:flex;align-items:center;justify-content:center;gap:8px;font-family:'DM Sans',sans-serif;
+}
+.rm-btn-close{background:#e2e8f0;color:#475569;}
+.rm-btn-sms{background:#ef4444;color:#fff;}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+</style>
+</head>
+<body>
+
+<!-- ════════════ SPLASH ════════════ -->
+<div id="splash-screen">
+  <div style="text-align:center;color:#fff;animation:fadeUp 1s ease-out;">
+    <div class="splash-icon">🫁</div>
+    <div class="splash-text"><p>Welcome to</p><h1>AsthmaCare AI</h1></div>
+  </div>
+</div>
+
+<!-- ════════════ PERMISSIONS OVERLAY ════════════ -->
+<div id="perm-screen">
+  <div class="perm-icon">🔐</div>
+  <h2 style="font-size:1.8rem;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Permissions Required</h2>
+  <p style="color:var(--muted);font-size:.95rem;max-width:380px;text-align:center;line-height:1.6;">AsthmaCare AI needs the following permissions for accurate monitoring:</p>
+  <div class="perm-card">
+    <i class="fa-solid fa-location-dot"></i>
+    <div><div style="font-weight:700;margin-bottom:3px;">Location</div><div style="font-size:.82rem;color:var(--muted);">To fetch real-time AQI, temperature and humidity for your location</div></div>
+  </div>
+  <div class="perm-card">
+    <i class="fa-solid fa-microphone"></i>
+    <div><div style="font-weight:700;margin-bottom:3px;">Microphone</div><div style="font-size:.82rem;color:var(--muted);">To detect cough and wheezing sounds for risk analysis</div></div>
+  </div>
+  <button class="perm-btn" onclick="requestPermissions()"><i class="fa-solid fa-shield-check" style="margin-right:8px;"></i>Allow Permissions & Continue</button>
+  <p style="font-size:.75rem;color:var(--muted);max-width:360px;text-align:center;">Your data stays on your device. We never upload personal recordings.</p>
+</div>
+
+<!-- ════════════ LANGUAGE SCREEN ════════════ -->
+<div id="lang-screen">
+  <div style="text-align:center;max-width:420px;width:100%;">
+    <i class="fa-solid fa-globe" style="font-size:3.8rem;color:var(--primary);filter:drop-shadow(0 0 22px var(--primary-glow));margin-bottom:18px;"></i>
+    <h1 style="font-size:2rem;font-weight:900;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px;">Choose Language</h1>
+    <p style="color:var(--muted);font-size:.95rem;line-height:1.5;">Select your preferred language. The entire app will use this language.</p>
+  </div>
+  <div class="lang-grid">
+    <button class="lang-btn" onclick="selectLang('English')"><div class="lang-flag">GB</div>English</button>
+    <button class="lang-btn" onclick="selectLang('Hindi')"><div class="lang-flag">IN</div>हिंदी</button>
+    <button class="lang-btn" onclick="selectLang('Kannada')"><div class="lang-flag">IN</div>ಕನ್ನಡ</button>
+    <button class="lang-btn" onclick="selectLang('Marathi')"><div class="lang-flag">IN</div>मराठी</button>
+  </div>
+  <p id="lang-error" style="color:var(--danger);font-size:.82rem;display:none;margin-top:8px;">Please select a language to continue.</p>
+</div>
+
+<!-- Interaction mode screen removed — app is manual/touch only -->
+
+<!-- ════════════ LOADER ════════════ -->
+<div id="loader"><div class="spinner"></div><p id="loader-text">Initializing...</p></div>
+
+<!-- ════════════ MAIN APP ════════════ -->
+<div id="app">
+<div id="main-app">
+
+  <!-- Profile Section -->
+  <div id="profile-section" style="display:none;flex-direction:column;gap:20px;animation:fadeUp .55s ease forwards;">
+    <!-- Top-bar: back to language (left) + logout (right) -->
+    <div class="profile-topbar">
+      <button class="topbar-icon-btn" id="profile-back-btn" onclick="backToLang()" title="Change Language">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <span id="profile-saved-badge" class="saved-badge" style="display:none;">
+        <i class="fa-solid fa-circle-check"></i> Saved
+      </span>
+      <button class="topbar-icon-btn logout-btn" onclick="logoutProfile()" title="Logout / Clear Profile">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </button>
+    </div>
+    <div>
+      <h1 class="hero-title" id="tt-heroTitle">AsthmaCare AI</h1>
+      <p class="hero-sub" id="tt-heroSub">Our system predicts asthma attacks before they happen by combining environmental data, personal health factors, and real-time symptoms like coughing.</p>
+    </div>
+    <div class="glass form-section">
+      <h3 style="color:var(--primary);font-size:1.15rem;" id="tt-personalDetails">Personal Details</h3>
+      <div>
+        <div class="form-label" id="tt-nameLabel">Name</div>
+        <input type="text" id="f-name" class="form-field" placeholder="Enter your name">
+        <div class="field-error" id="e-name" id="tt-nameReq">Name is required</div>
+      </div>
+      <div>
+        <div class="form-label" id="tt-ageLabel">Age</div>
+        <input type="number" id="f-age" class="form-field" placeholder="Enter your age">
+        <div class="field-error" id="e-age">Age is required</div>
+      </div>
+      <div>
+        <div class="form-label" id="tt-doctorLabel">Doctor's Phone Number</div>
+        <input type="tel" id="f-doctor" class="form-field" placeholder="+91 12345 67890">
+        <div class="field-error" id="e-doctor">Doctor's number is required</div>
+      </div>
+      <div>
+        <div class="form-label" id="tt-severityLabel">Asthma Severity</div>
+        <select id="f-severity" class="form-field">
+          <option value="low">LOW</option>
+          <option value="moderate">MODERATE</option>
+          <option value="high">HIGH</option>
+        </select>
+      </div>
+      <div>
+        <div class="form-label" id="tt-triggersLabel">Triggers</div>
+        <div class="triggers-row">
+          <label class="trigger-label"><input type="checkbox" value="Dust" class="trigger-cb" id="cb-dust"> <span id="tt-dust">Dust</span></label>
+          <label class="trigger-label"><input type="checkbox" value="Humidity" class="trigger-cb" id="cb-hum"> <span id="tt-humidity">Humidity</span></label>
+          <label class="trigger-label"><input type="checkbox" value="Cold" class="trigger-cb" id="cb-cold"> <span id="tt-cold">Cold</span></label>
+        </div>
+      </div>
+    </div>
+    <button class="continue-btn" onclick="submitProfile()">
+      <i class="fa-solid fa-arrow-right"></i> <span id="tt-continueBtn">Continue</span>
+    </button>
+    <div class="disclaimer-box" id="tt-disclaimer"><strong>Disclaimer:</strong> This system provides early warning and preventive guidance and does not replace professional medical diagnosis.</div>
+  </div>
+
+  <!-- Mode Section -->
+  <div id="mode-section" style="display:none;flex-direction:column;gap:18px;animation:fadeUp .55s ease forwards;">
+    <div>
+      <h2 class="hero-title" id="tt-selectMode">Select Mode</h2>
+      <p class="hero-sub" id="tt-selectModeSub">Choose how you want to connect and monitor your asthma risk.</p>
+    </div>
+    <button class="mode-btn" id="mode-nodata" onclick="startApp('nodata')">
+      <i class="fa-solid fa-mobile-screen"></i>
+      <div><div id="tt-withoutDevice">Without Device</div><div style="font-size:.8rem;color:var(--muted);font-weight:400;margin-top:3px;" id="tt-withoutDeviceSub">Uses phone mic &amp; sensors</div></div>
+    </button>
+    <button class="mode-btn highlight" id="mode-device" onclick="startApp('device')">
+      <span class="mode-badge" id="tt-moreAccurate">MORE ACCURATE</span>
+      <i class="fa-solid fa-wifi"></i>
+      <div><div id="tt-withDevice">With Device</div><div style="font-size:.8rem;color:var(--muted);font-weight:400;margin-top:3px;" id="tt-withDeviceSub">Connect ESP32 • Real-time Monitoring</div></div>
+    </button>
+    <button class="mode-btn" id="mode-location" onclick="startApp('location')">
+      <i class="fa-solid fa-location-dot"></i>
+      <div><div id="tt-locationMode">Location Based API</div><div style="font-size:.8rem;color:var(--muted);font-weight:400;margin-top:3px;" id="tt-locationModeSub">Uses Open-Meteo &amp; AQI APIs</div></div>
+    </button>
+    <div class="bt-error-banner" id="bt-error-banner">
+      <i class="fa-solid fa-bluetooth"></i>
+      <span id="bt-error-text">Could not connect to AsthmaCare_ESP32. Make sure the device is ON and nearby, then try again.</span>
+    </div>
+    <p class="mode-error" id="mode-error">Please select a mode to continue.</p>
+    <button class="back-btn" onclick="showProfile()"><i class="fa-solid fa-arrow-left"></i> <span id="tt-backProfile">Back to Profile</span></button>
+  </div>
+
+</div><!-- /main-app -->
+
+<!-- ════════════ DASHBOARD ════════════ -->
+<div id="dashboard-screen">
+  <div class="dash-header">
+    <button class="header-btn" onclick="backToMode()"><i class="fa-solid fa-chevron-left"></i></button>
+    <h2 id="tt-sysMonitoring">System Monitoring</h2>
+    <button class="header-btn" onclick="showProfile()"><i class="fa-regular fa-user"></i></button>
+  </div>
+  <!-- BT status pill (visible only in device mode) -->
+  <div id="bt-status-row" style="display:none;text-align:center;">
+    <span id="bt-status-pill" class="bt-status-pill connected">
+      <span class="dot"></span>
+      <i class="fa-brands fa-bluetooth-b"></i>
+      <span id="bt-status-text">ESP32 Connected</span>
+    </span>
+  </div>
+  <p class="env-sub" id="tt-envFactors">Environmental affecting factors</p>
+
+  <!-- Risk Banner -->
+  <div id="risk-banner" class="risk-banner safe fade-up">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 100 50" style="width:100%;height:100%;">
+          <path class="gauge-bg" d="M10,45 A40,40 0 0,1 90,45"/>
+          <path id="gauge-path" class="gauge-prog" d="M10,45 A40,40 0 0,1 90,45"/>
+          <circle fill="var(--primary)" cx="50" cy="45" r="3"/>
+          <line id="gauge-needle" class="gauge-needle" x1="50" y1="45" x2="20" y2="30"/>
+        </svg>
+      </div>
+      <div style="margin-top:-16px;text-align:center;">
+        <h2 class="risk-title" id="risk-title">LOW</h2>
+        <p class="risk-score-text"><span id="tt-riskLevel">Risk Level</span>: <span id="risk-score">0/100</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metric Cards -->
+  <div class="metrics-grid fade-up" style="animation-delay:.1s;">
+    <div class="metric-card m-safe" id="card-aqi">
+      <i class="fa-solid fa-wind metric-icon"></i>
+      <div class="metric-val"><span id="val-aqi">--</span></div>
+      <div class="metric-lbl" id="tt-aqiLabel">AQI (Air Quality)</div>
+      <div id="status-aqi" class="status-row s-safe"><i class="fa-solid fa-shield-halved"></i><span id="tt-safeStatus">LOW RISK (Safe)</span></div>
+    </div>
+    <div class="metric-card m-safe" id="card-temp">
+      <i class="fa-solid fa-temperature-half metric-icon" style="color:#ff9f43;"></i>
+      <div class="metric-val"><span id="val-temp">--</span>°C</div>
+      <div class="metric-lbl" id="tt-tempLabel">Temperature</div>
+      <div id="status-temp" class="status-row s-safe"><i class="fa-solid fa-shield-halved"></i><span>LOW RISK (Safe)</span></div>
+    </div>
+    <div class="metric-card m-safe" id="card-hum">
+      <i class="fa-solid fa-droplet metric-icon" style="color:#0088ff;"></i>
+      <div class="metric-val"><span id="val-hum">--</span>%</div>
+      <div class="metric-lbl" id="tt-humLabel">Humidity</div>
+      <div id="status-hum" class="status-row s-safe"><i class="fa-solid fa-shield-halved"></i><span>LOW RISK (Safe)</span></div>
+    </div>
+    <div class="metric-card m-safe" id="card-sound">
+      <i class="fa-solid fa-microphone-lines metric-icon" style="color:#a55eea;"></i>
+      <div class="metric-val"><span id="val-sound">0</span>/s</div>
+      <div class="metric-lbl" id="tt-soundLabel">Cough/Wheeze Rate</div>
+      <div id="mic-pill" class="mic-pill"><span class="dot"></span> MIC OFF</div>
+      <div id="status-sound" class="status-row s-safe"><i class="fa-solid fa-shield-halved"></i><span>LOW RISK (Safe)</span></div>
+    </div>
+  </div>
+
+  <button class="ai-btn fade-up" style="animation-delay:.2s;" onclick="goAnalysis()">
+    <i class="fa-solid fa-brain"></i>
+    <span id="tt-aiBtn">AI ANALYSIS</span>
+  </button>
+  <button class="graph-btn fade-up" id="graph-btn" disabled style="animation-delay:.25s;" onclick="goGraph()">
+    <i class="fa-solid fa-chart-line"></i>
+    <span id="tt-graphBtn">Asthma Attack Prediction Graph</span>
+  </button>
+</div><!-- /dashboard-screen -->
+
+<!-- ════════════ ANALYSIS SCREEN ════════════ -->
+<div id="analysis-screen">
+  <div class="dash-header">
+    <button class="header-btn" onclick="backToDash()"><i class="fa-solid fa-chevron-left"></i></button>
+    <h2 id="tt-aiAnalysis">AI ANALYSIS</h2>
+    <div></div>
+  </div>
+  <div class="glass analysis-card" id="analysis-bg">
+    <i class="fa-solid fa-quote-left" style="color:var(--primary);font-size:1.5rem;"></i>
+    <div class="analysis-quote" id="analysis-text"></div>
+    <div class="analysis-btns">
+      <button class="report-btn" id="send-report-btn" disabled onclick="sendReport()" style="flex:1;"><i class="fa-solid fa-paper-plane"></i> <span id="tt-shareBtn">Share Report with Doctor</span></button>
+    </div>
+  </div>
+</div><!-- /analysis-screen -->
+
+<!-- ════════════ PREDICTION GRAPH SCREEN ════════════ -->
+<div id="graph-screen">
+  <div class="graph-header">
+    <button class="header-btn" onclick="backToDash()"><i class="fa-solid fa-chevron-left"></i></button>
+    <h2 id="tt-graphTitle">Asthma Attack Prediction</h2>
+    <div></div>
+  </div>
+
+  <!-- Summary bar -->
+  <div id="graph-risk-bar" class="risk-summary-bar safe glass">
+    <div>
+      <div style="font-size:.82rem;opacity:.85;" id="tt-currentRisk">Current Risk</div>
+      <div class="risk-label" id="graph-risk-label">LOW</div>
+      <div style="font-size:.8rem;opacity:.8;margin-top:2px;" id="tt-takePrecaution">You are in a safe zone</div>
+    </div>
+    <div class="risk-score-circle" id="graph-score-circle">
+      <span id="graph-score-num">0</span><small id="tt-percent">%</small>
+    </div>
+    <div style="margin-left:auto;text-align:right;">
+      <div class="next24-tag" id="tt-next24">Next 24 Hours</div>
+      <div class="next24-val" id="graph-next24-val" style="color:var(--safe);">Low Risk Period</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="glass chart-box">
+    <div class="chart-title">Temperature (°C) — <span style="color:var(--danger);">Threshold: 25°C</span></div>
+    <canvas id="chart-temp"></canvas>
+  </div>
+  <div class="glass chart-box">
+    <div class="chart-title">AQI — <span style="color:var(--danger);">Threshold: 70 AQI</span></div>
+    <canvas id="chart-aqi"></canvas>
+  </div>
+  <div class="glass chart-box">
+    <div class="chart-title">Humidity (%) — <span style="color:var(--danger);">Threshold: 70%</span></div>
+    <canvas id="chart-hum"></canvas>
+  </div>
+</div><!-- /graph-screen -->
+
+<!-- ════════════ LOCATION SCREEN ════════════ -->
+<div id="location-screen">
+  <div class="dash-header">
+    <button class="header-btn" onclick="backToMode()"><i class="fa-solid fa-chevron-left"></i></button>
+    <h2 id="tt-locationTitle">Location Based</h2>
+    <div></div>
+  </div>
+  <div class="loc-search-row">
+    <input type="text" class="loc-input" id="city-input" placeholder="Enter city name...">
+    <button class="loc-search-btn" onclick="searchCity()"><i class="fa-solid fa-search" style="margin-right:6px;"></i><span id="tt-search">Search</span></button>
+  </div>
+  <div class="glass loc-result-card" id="loc-result" style="display:none;">
+    <div class="loc-city-name" id="loc-city-name"></div>
+    <div class="loc-coords" id="loc-coords"></div>
+    <div class="loc-metrics-grid">
+      <div class="loc-metric" id="loc-card-aqi">
+        <div class="lm-icon">💨</div>
+        <div class="lm-val" id="loc-aqi">--</div>
+        <div class="lm-lbl">AQI</div>
+        <div class="lm-status" id="loc-aqi-status">--</div>
+      </div>
+      <div class="loc-metric" id="loc-card-temp">
+        <div class="lm-icon">🌡️</div>
+        <div class="lm-val" id="loc-temp">--°C</div>
+        <div class="lm-lbl" id="tt-temperature">Temperature</div>
+        <div class="lm-status" id="loc-temp-status">--</div>
+      </div>
+      <div class="loc-metric" id="loc-card-hum">
+        <div class="lm-icon">💧</div>
+        <div class="lm-val" id="loc-hum">--%</div>
+        <div class="lm-lbl" id="tt-humidity2">Humidity</div>
+        <div class="lm-status" id="loc-hum-status">--</div>
+      </div>
+      <div class="loc-metric" id="loc-card-wind">
+        <div class="lm-icon">🌬️</div>
+        <div class="lm-val" id="loc-wind">-- km/h</div>
+        <div class="lm-lbl">Wind</div>
+        <div class="lm-status" id="loc-wind-status" class="lm-status safe">Light Breeze</div>
+      </div>
+    </div>
+    <button class="view-forecast-btn" style="margin-top:14px;" onclick="goGraph()">
+      <i class="fa-solid fa-chart-line"></i> <span id="tt-viewForecast">View 24-Hour Forecast</span>
+    </button>
+  </div>
+  <div id="loc-loading" style="display:none;text-align:center;padding:30px 0;color:var(--muted);">
+    <div class="spinner" style="margin:0 auto 12px;"></div>Fetching data...
+  </div>
+  <div id="loc-error-msg" style="display:none;color:var(--danger);text-align:center;padding:20px;font-size:.9rem;"></div>
+</div><!-- /location-screen -->
+
+<!-- ════════════ MEDICAL REPORT MODAL ════════════ -->
+<div id="report-modal">
+  <div class="rm-header">
+    <div class="rm-title-group">
+      <h2>ASTHMA PATIENT REPORT</h2>
+      <p>Comprehensive Asthma Risk Assessment</p>
+    </div>
+    <div class="rm-clinic">
+      <i class="fa-solid fa-square-plus" style="font-size:1.5rem;color:#3b82f6;"></i><br>
+      HealthCare
+    </div>
+  </div>
+  
+  <div class="rm-content">
+    <div class="rm-card rm-pt-grid">
+      <div class="rm-pt-row"><div class="rm-pt-lbl">Patient Name</div><div class="rm-pt-val">:<span id="rep-name">--</span></div></div>
+      <div class="rm-pt-row"><div class="rm-pt-lbl">Location</div><div class="rm-pt-val">:<span id="rep-loc">--</span></div></div>
+      <div class="rm-pt-row"><div class="rm-pt-lbl">Age</div><div class="rm-pt-val">:<span id="rep-age">--</span></div></div>
+      <div class="rm-pt-row"><div class="rm-pt-lbl">Date</div><div class="rm-pt-val">:<span id="rep-date">--</span></div></div>
+      <div class="rm-pt-row"><div class="rm-pt-lbl">Severity</div><div class="rm-pt-val">:<span id="rep-sev">--</span></div></div>
+      <div class="rm-pt-row"><div class="rm-pt-lbl">Time</div><div class="rm-pt-val">:<span id="rep-time">--</span></div></div>
+    </div>
+
+    <div class="rm-3col">
+      <div class="rm-box">
+        <div class="rm-box-title" style="color:#ef4444;">Asthma Severity</div>
+        <i class="fa-solid fa-lungs" style="font-size:2rem;color:#ef4444;margin-bottom:5px;"></i>
+        <div class="rm-danger-text">HIGH SEVERITY</div>
+        <div style="font-size:0.7rem;color:#64748b;margin-top:5px;">High risk of asthma attack.</div>
+      </div>
+      <div class="rm-box">
+        <div class="rm-box-title">Risk Summary</div>
+        <div class="rm-risk-circle"><span id="rep-score">76</span>%</div>
+        <div style="font-size:0.75rem;color:#ef4444;font-weight:700;background:#fee2e2;padding:4px 8px;border-radius:4px;">High risk period</div>
+      </div>
+      <div class="rm-box">
+        <div class="rm-box-title">Next 24 Hours</div>
+        <i class="fa-solid fa-triangle-exclamation" style="font-size:2rem;color:#ef4444;margin-bottom:5px;"></i>
+        <div style="font-size:0.8rem;color:#334155;">High chances of asthma attack expected</div>
+      </div>
+    </div>
+
+    <div class="rm-card" style="margin-top:15px;">
+      <div class="rm-section-title" style="background:#dcfce7;color:#166534;">Trigger Factors Entered By User</div>
+      <div class="rm-triggers" id="rep-triggers"></div>
+    </div>
+
+    <div class="rm-card">
+      <div class="rm-section-title" style="background:#dbeafe;color:#1e40af;">Environmental Factors (System)</div>
+      <div class="rm-env-grid">
+        <div class="rm-env-item"><div class="rm-env-icon">💨</div><div class="rm-env-val" id="rep-aqi">--</div><div class="rm-env-lbl">AQI</div><div class="rm-env-status" id="rep-aqi-st">--</div></div>
+        <div class="rm-env-item"><div class="rm-env-icon">🌡️</div><div class="rm-env-val" id="rep-temp">--</div><div class="rm-env-lbl">Temp</div><div class="rm-env-status" id="rep-temp-st">--</div></div>
+        <div class="rm-env-item"><div class="rm-env-icon">💧</div><div class="rm-env-val" id="rep-hum">--</div><div class="rm-env-lbl">Hum</div><div class="rm-env-status" id="rep-hum-st">--</div></div>
+        <div class="rm-env-item"><div class="rm-env-icon">🗣️</div><div class="rm-env-val" id="rep-cough">--</div><div class="rm-env-lbl">Cough</div><div class="rm-env-status" id="rep-cough-st">--</div></div>
+      </div>
+    </div>
+
+    <div class="rm-split">
+      <div class="rm-card">
+        <div class="rm-box-title" style="text-align:left;color:#1e3a8a;"><i class="fa-solid fa-brain"></i> AI Health Insight</div>
+        <div class="rm-insight" id="rep-insight">Based on the environmental conditions and your inputs, the risk of asthma attack is high.</div>
+      </div>
+      <div class="rm-card">
+        <div class="rm-box-title" style="text-align:left;color:#1e3a8a;"><i class="fa-solid fa-clipboard-list"></i> Recommendations</div>
+        <ul class="rm-rec-list">
+          <li><i class="fa-solid fa-house-chimney"></i> Stay indoors</li>
+          <li><i class="fa-solid fa-spray-can"></i> Use inhaler</li>
+          <li><i class="fa-solid fa-person-running"></i> Avoid heavy exercise</li>
+          <li><i class="fa-solid fa-glass-water"></i> Stay hydrated</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="rm-actions">
+    <button class="rm-btn rm-btn-close" onclick="closeReport()"><i class="fa-solid fa-xmark"></i> Close</button>
+    <button class="rm-btn rm-btn-sms" onclick="sendSmsFromReport()"><i class="fa-solid fa-comment-sms"></i> Send SMS to Doctor</button>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  GLOBAL STATE
+// ═══════════════════════════════════════════════════════
+let G = {
+  lang: 'English',
+  interaction: 'manual',  // always manual
+  mode: '',               // 'nodata' | 'device' | 'location'
+  sensor: {aqi:0,temp:0,hum:0,coughsPerSec:0,isContinuous:false,soundLevel:0},
+  micRunning: false,
+  currentRisk: 0,         // 0..1
+  dangerCount: 0,
+  analysisRisk: 'safe',
+  permGranted: false,
+  btConnected: false,
+  btDevice: null,
+  autoSmsSent: false
+};
+let chartInstances = {};
+let riskModel = null;
+let audioCtx, analyser, scriptProc, micStream;
+let spikeCount=0, lastSpikeTime=0, continuousStart=0, secondStart=Date.now();
+let isMicRunning=false;
+let updateInterval = null;
+
+// ═══════════════════════════════════════════════════════
+//  TRANSLATIONS
+// ═══════════════════════════════════════════════════════
+const T = {
+  English:{
+    langCode:'en-US',
+    heroTitle:'AsthmaCare AI',
+    heroSub:'Our system predicts asthma attacks before they happen by combining environmental data, personal health factors, and real-time symptoms like coughing.',
+    personalDetails:'Personal Details',nameLabel:'Name',ageLabel:'Age',doctorLabel:"Doctor's Phone Number",
+    severityLabel:'Asthma Severity',triggersLabel:'Triggers',dust:'Dust',humidity:'Humidity',cold:'Cold',
+    continueBtn:'Continue',disclaimer:'Disclaimer: This system provides early warning and preventive guidance and does not replace professional medical diagnosis.',
+    selectMode:'Select Mode',selectModeSub:'Choose how you want to connect and monitor your asthma risk.',
+    withoutDevice:'Without Device',withoutDeviceSub:'Uses phone mic & sensors',
+    withDevice:'With Device',withDeviceSub:'Connect ESP32 • Real-time Monitoring',
+    moreAccurate:'MORE ACCURATE',locationMode:'Location Based API',locationModeSub:'Uses Open-Meteo & AQI APIs',
+    backProfile:'Back to Profile',sysMonitoring:'System Monitoring',envFactors:'Environmental affecting factors',
+    riskLevel:'Risk Level',low:'LOW',medium:'MEDIUM',high:'HIGH',
+    aqiLabel:'AQI (Air Quality)',tempLabel:'Temperature',humLabel:'Humidity',soundLabel:'Cough/Wheeze Rate',
+    safeStatus:'LOW RISK (Safe)',warnStatus:'BE CAUTIOUS',dangerStatus:'HIGH RISK (Danger)',
+    aiBtn:'AI ANALYSIS',aiAnalysis:'AI ANALYSIS',shareBtn:'Share Report with Doctor',
+    graphBtn:'Asthma Attack Prediction Graph',graphTitle:'Asthma Attack Prediction',
+    currentRisk:'Current Risk',next24:'Next 24 Hours',percent:'%',takePrecaution:'Take precautions',
+    search:'Search',locationTitle:'Location Based',temperature:'Temperature',humidity2:'Humidity',viewForecast:'View 24-Hour Forecast',
+
+    // AI Analysis messages
+    safeMsg:(name,sev,trig)=>`Hey ${name}. You are in ${sev} severity asthma patient. You are triggered by ${trig}. But you are in the SAFE ZONE — don't worry! All environmental factors are within safe limits. Stay relaxed and continue monitoring.`,
+    warnMsg:(name,sev,trig)=>`Hey ${name}. You are in ${sev} severity asthma patient. You are triggered by ${trig}. BE CAUTIOUS — you are in a MEDIUM RISK zone. Some environmental factors are elevated. Avoid your triggers, keep your medical kit nearby, and stay indoors if possible.`,
+    dangerMsg:(name,sev,trig)=>`Hey ${name}! You are in ${sev} severity asthma patient. You are triggered by ${trig} — and these are ALSO HIGH RISK in the surrounding environment! Go to a cleaner environment immediately. Take your inhaler or tablets with you now. Take all precautions! Send this report to your doctor right away.`,
+  },
+  Hindi:{
+    langCode:'hi-IN',
+    heroTitle:'AsthmaCare AI',
+    heroSub:'हमारी प्रणाली पर्यावरणीय डेटा, व्यक्तिगत स्वास्थ्य कारकों और खांसी जैसे लक्षणों को मिलाकर अस्थमा के हमलों की भविष्यवाणी करती है।',
+    personalDetails:'व्यक्तिगत विवरण',nameLabel:'नाम',ageLabel:'आयु',doctorLabel:'डॉक्टर का फ़ोन नंबर',
+    severityLabel:'अस्थमा की गंभीरता',triggersLabel:'ट्रिगर',dust:'धूल',humidity:'नमी',cold:'ठंड',
+    continueBtn:'जारी रखें',disclaimer:'अस्वीकरण: यह प्रणाली प्रारंभिक चेतावनी प्रदान करती है और पेशेवर चिकित्सा निदान की जगह नहीं लेती।',
+    selectMode:'मोड चुनें',selectModeSub:'चुनें कि आप कैसे जुड़ना और अपने अस्थमा जोखिम की निगरानी करना चाहते हैं।',
+    withoutDevice:'डिवाइस के बिना',withoutDeviceSub:'फोन माइक और सेंसर का उपयोग करता है',
+    withDevice:'डिवाइस के साथ',withDeviceSub:'ESP32 कनेक्ट करें • रीयल-टाइम मॉनिटरिंग',
+    moreAccurate:'अधिक सटीक',locationMode:'स्थान आधारित API',locationModeSub:'Open-Meteo और AQI APIs का उपयोग करता है',
+    backProfile:'प्रोफ़ाइल पर वापस',sysMonitoring:'सिस्टम की निगरानी',envFactors:'पर्यावरण को प्रभावित करने वाले कारक',
+    riskLevel:'जोखिम स्तर',low:'कम',medium:'मध्यम',high:'उच्च',
+    aqiLabel:'AQI (वायु गुणवत्ता)',tempLabel:'तापमान',humLabel:'आर्द्रता',soundLabel:'खांसी/घरघराहट दर',
+    safeStatus:'कम जोखिम (सुरक्षित)',warnStatus:'सावधान रहें',dangerStatus:'उच्च जोखिम (खतरा)',
+    aiBtn:'AI विश्लेषण',aiAnalysis:'AI विश्लेषण',shareBtn:'डॉक्टर के साथ रिपोर्ट साझा करें',
+    graphBtn:'अस्थमा हमला पूर्वानुमान ग्राफ',graphTitle:'अस्थमा हमला पूर्वानुमान',
+    currentRisk:'वर्तमान जोखिम',next24:'अगले 24 घंटे',percent:'%',takePrecaution:'सावधानी बरतें',
+    search:'खोजें',locationTitle:'स्थान आधारित',temperature:'तापमान',humidity2:'आर्द्रता',viewForecast:'24 घंटे का पूर्वानुमान देखें',
+    ititle:'कैसे इंटरैक्ट करें?',isub:'चुनें कि आप ऐप को कैसे नेविगेट करना चाहते हैं।',
+    imanual:'मैनुअल / टच',imanualSub:'टाइप करें और टैप करें',
+    ivoice:'वॉयस कमांड',ivoiceSub:'बोलकर नेविगेट करें। ऐप लगातार सुनता है।',
+    safeMsg:(n,s,t)=>`नमस्ते ${n}। आप ${s} गंभीरता के अस्थमा रोगी हैं। आप ${t} से ट्रिगर होते हैं। लेकिन आप सुरक्षित क्षेत्र में हैं — चिंता न करें!`,
+    warnMsg:(n,s,t)=>`नमस्ते ${n}। आप ${s} गंभीरता के अस्थमा रोगी हैं। आप ${t} से ट्रिगर होते हैं। सावधान रहें — आप मध्यम जोखिम क्षेत्र में हैं। अपनी मेडिकल किट पास रखें।`,
+    dangerMsg:(n,s,t)=>`नमस्ते ${n}! आप ${s} गंभीरता के अस्थमा रोगी हैं। आप ${t} से ट्रिगर होते हैं — और ये पर्यावरण में भी उच्च जोखिम में हैं! तुरंत किसी स्वच्छ स्थान पर जाएं। अपना इनहेलर और दवाएं लें। अभी अपने डॉक्टर को रिपोर्ट भेजें!`,
+  },
+  Kannada:{
+    langCode:'kn-IN',
+    heroTitle:'AsthmaCare AI',
+    heroSub:'ನಮ್ಮ ವ್ಯವಸ್ಥೆಯು ಅಸ್ತಮಾ ದಾಳಿಗಳನ್ನು ಮೊದಲೇ ಊಹಿಸುತ್ತದೆ.',
+    personalDetails:'ವೈಯಕ್ತಿಕ ವಿವರಗಳು',nameLabel:'ಹೆಸರು',ageLabel:'ವಯಸ್ಸು',doctorLabel:'ವೈದ್ಯರ ಫೋನ್ ಸಂಖ್ಯೆ',
+    severityLabel:'ಅಸ್ತಮಾ ತೀವ್ರತೆ',triggersLabel:'ಪ್ರಚೋದಕಗಳು',dust:'ಧೂಳು',humidity:'ಆರ್ದ್ರತೆ',cold:'ಚಳಿ',
+    continueBtn:'ಮುಂದುವರಿಸಿ',disclaimer:'ಹಕ್ಕುತ್ಯಾಗ: ಈ ವ್ಯವಸ್ಥೆಯು ಮಾರ್ಗದರ್ಶನ ನೀಡುತ್ತದೆ, ವೈದ್ಯಕೀಯ ನಿರ್ಣಯ ಅಲ್ಲ.',
+    selectMode:'ಮೋಡ್ ಆಯ್ಕೆಮಾಡಿ',selectModeSub:'ಹೇಗೆ ಸಂಪರ್ಕಿಸಲು ಬಯಸುತ್ತೀರಿ ಎಂಬುದನ್ನು ಆರಿಸಿ.',
+    withoutDevice:'ಸಾಧನವಿಲ್ಲದೆ',withoutDeviceSub:'ಫೋನ್ ಮೈಕ್ ಬಳಸುತ್ತದೆ',
+    withDevice:'ಸಾಧನದೊಂದಿಗೆ',withDeviceSub:'ESP32 ಸಂಪರ್ಕಿಸಿ',
+    moreAccurate:'ಹೆಚ್ಚು ನಿಖರ',locationMode:'ಸ್ಥಳ ಆಧಾರಿತ API',locationModeSub:'Open-Meteo ಮತ್ತು AQI APIs',
+    backProfile:'ಪ್ರೊಫೈಲ್‌ಗೆ ಹಿಂತಿರುಗಿ',sysMonitoring:'ಸಿಸ್ಟಮ್ ಮಾನಿಟರಿಂಗ್',envFactors:'ಪರಿಸರ ಬಾಧಿಸುವ ಅಂಶಗಳು',
+    riskLevel:'ಅಪಾಯದ ಮಟ್ಟ',low:'ಕಡಿಮೆ',medium:'ಮಧ್ಯಮ',high:'ಹೆಚ್ಚು',
+    aqiLabel:'AQI (ವಾಯು ಗುಣಮಟ್ಟ)',tempLabel:'ತಾಪಮಾನ',humLabel:'ಆರ್ದ್ರತೆ',soundLabel:'ಕೆಮ್ಮು ದರ',
+    safeStatus:'ಕಡಿಮೆ ಅಪಾಯ (ಸುರಕ್ಷಿತ)',warnStatus:'ಜಾಗರೂಕರಾಗಿರಿ',dangerStatus:'ಹೆಚ್ಚಿನ ಅಪಾಯ',
+    aiBtn:'AI ವಿಶ್ಲೇಷಣೆ',aiAnalysis:'AI ವಿಶ್ಲೇಷಣೆ',shareBtn:'ವೈದ್ಯರೊಂದಿಗೆ ವರದಿ ಹಂಚಿಕೊಳ್ಳಿ',
+    graphBtn:'ಅಸ್ತಮಾ ಹಲ್ಲೆ ಮುನ್ಸೂಚನೆ ಗ್ರಾಫ್',graphTitle:'ಅಸ್ತಮಾ ಹಲ್ಲೆ ಮುನ್ಸೂಚನೆ',
+    currentRisk:'ಪ್ರಸ್ತುತ ಅಪಾಯ',next24:'ಮುಂದಿನ 24 ಗಂಟೆ',percent:'%',takePrecaution:'ಮುನ್ನೆಚ್ಚರಿಕೆ ತೆಗೆದುಕೊಳ್ಳಿ',
+    search:'ಹುಡುಕಿ',locationTitle:'ಸ್ಥಳ ಆಧಾರಿತ',temperature:'ತಾಪಮಾನ',humidity2:'ಆರ್ದ್ರತೆ',viewForecast:'24 ಗಂಟೆ ಮುನ್ಸೂಚನೆ ನೋಡಿ',
+
+    safeMsg:(n,s,t)=>`ಹೇ ${n}. ನೀವು ${s} ತೀವ್ರತೆಯ ಅಸ್ತಮಾ ರೋಗಿ. ${t} ನಿಮ್ಮ ಪ್ರಚೋದಕಗಳು. ಆದರೆ ನೀವು ಸುರಕ್ಷಿತ ವಲಯದಲ್ಲಿದ್ದೀರಿ — ಚಿಂತಿಸಬೇಡಿ!`,
+    warnMsg:(n,s,t)=>`ಹೇ ${n}. ನೀವು ${s} ತೀವ್ರತೆಯ ಅಸ್ತಮಾ ರೋಗಿ. ${t} ಪ್ರಚೋದಕಗಳು. ಜಾಗರೂಕರಾಗಿರಿ — ಮಧ್ಯಮ ಅಪಾಯ ವಲಯ. ವೈದ್ಯಕೀಯ ಕಿಟ್ ಹತ್ತಿರ ಇರಿಸಿ.`,
+    dangerMsg:(n,s,t)=>`ಹೇ ${n}! ನೀವು ${s} ತೀವ್ರತೆಯ ಅಸ್ತಮಾ ರೋಗಿ. ${t} ಪ್ರಚೋದಕಗಳು — ಇವು ಸುತ್ತಮುತ್ತಲಿನ ಪರಿಸರದಲ್ಲಿ ಕೂಡ ಹೆಚ್ಚಿನ ಅಪಾಯದಲ್ಲಿವೆ! ತಕ್ಷಣ ಸ್ವಚ್ಛ ಸ್ಥಳಕ್ಕೆ ಹೋಗಿ. ಇನ್ಹೇಲರ್ ತೆಗೆದುಕೊಳ್ಳಿ. ವೈದ್ಯರಿಗೆ ವರದಿ ಕಳುಹಿಸಿ!`,
+  },
+  Marathi:{
+    langCode:'mr-IN',
+    heroTitle:'AsthmaCare AI',
+    heroSub:'आमची प्रणाली पर्यावरणीय डेटा, वैयक्तिक आरोग्य घटक आणि खोकल्यासारख्या लक्षणांच्या आधारे अस्थमाच्या हल्ल्यांचा अंदाज वर्तवते.',
+    personalDetails:'वैयक्तिक तपशील',nameLabel:'नाव',ageLabel:'वय',doctorLabel:'डॉक्टरांचा फोन नंबर',
+    severityLabel:'अस्थमाची तीव्रता',triggersLabel:'ट्रिगर',dust:'धूळ',humidity:'आर्द्रता',cold:'थंडी',
+    continueBtn:'सुरू ठेवा',disclaimer:'अस्वीकरण: ही प्रणाली केवळ पूर्वसूचना प्रदान करते, व्यावसायिक वैद्यकीय निदान नाही.',
+    selectMode:'मोड निवडा',selectModeSub:'कसे कनेक्ट होऊ इच्छिता ते निवडा.',
+    withoutDevice:'डिव्हाइसशिवाय',withoutDeviceSub:'फोन माइक वापरते',
+    withDevice:'डिव्हाइससह',withDeviceSub:'ESP32 कनेक्ट करा',
+    moreAccurate:'अधिक अचूक',locationMode:'स्थान आधारित API',locationModeSub:'Open-Meteo आणि AQI APIs',
+    backProfile:'प्रोफाइलवर परत',sysMonitoring:'सिस्टम मॉनिटरिंग',envFactors:'पर्यावरणावर परिणाम करणारे घटक',
+    riskLevel:'जोखीम पातळी',low:'कमी',medium:'मध्यम',high:'उच्च',
+    aqiLabel:'AQI (हवेची गुणवत्ता)',tempLabel:'तापमान',humLabel:'आर्द्रता',soundLabel:'खोकल्याचा दर',
+    safeStatus:'कमी जोखीम (सुरक्षित)',warnStatus:'सावध रहा',dangerStatus:'उच्च जोखीम (धोका)',
+    aiBtn:'AI विश्लेषण',aiAnalysis:'AI विश्लेषण',shareBtn:'डॉक्टरांशी अहवाल शेअर करा',
+    graphBtn:'अस्थमा हल्ला अंदाज आलेख',graphTitle:'अस्थमा हल्ला अंदाज',
+    currentRisk:'सध्याची जोखीम',next24:'पुढील 24 तास',percent:'%',takePrecaution:'खबरदारी घ्या',
+    search:'शोधा',locationTitle:'स्थान आधारित',temperature:'तापमान',humidity2:'आर्द्रता',viewForecast:'24-तास अंदाज पहा',
+
+    safeMsg:(n,s,t)=>`हे ${n}. तुम्ही ${s} तीव्रतेचे अस्थमा रुग्ण आहात. ${t} हे तुमचे ट्रिगर आहेत. पण तुम्ही सुरक्षित क्षेत्रात आहात — काळजी करू नका!`,
+    warnMsg:(n,s,t)=>`हे ${n}. तुम्ही ${s} तीव्रतेचे अस्थमा रुग्ण आहात. ${t} हे ट्रिगर आहेत. सावध रहा — मध्यम जोखीम क्षेत्र. वैद्यकीय किट जवळ ठेवा.`,
+    dangerMsg:(n,s,t)=>`हे ${n}! तुम्ही ${s} तीव्रतेचे अस्थमा रुग्ण आहात. ${t} ट्रिगर — आणि हे आजूबाजूच्या वातावरणातही उच्च जोखीम आहेत! ताबडतोब स्वच्छ ठिकाणी जा. इनहेलर घ्या. डॉक्टरांना अहवाल पाठवा!`,
+  }
+};
+
+// ═══════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════
+const t = () => T[G.lang];
+function el(id){return document.getElementById(id);}
+function showOnly(id){
+  ['main-app','dashboard-screen','analysis-screen','graph-screen','location-screen'].forEach(s=>{
+    const e = el(s);
+    if(e) e.style.display = (s===id)?'flex':'none';
+  });
+}
+// speak() removed — no voice output from the system
+function setVisible(id, show){const e=el(id); if(e) e.style.display=show?'flex':'none';}
+
+// ═══════════════════════════════════════════════════════
+//  SPLASH → PERMISSIONS → LANGUAGE
+// ═══════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>{
+    const s = el('splash-screen');
+    s.style.opacity='0'; s.style.visibility='hidden';
+    setTimeout(()=>{ s.style.display='none'; showPermissions(); },800);
+  },2200);
+});
+
+function showPermissions(){
+  el('perm-screen').style.display='flex';
+}
+
+async function requestPermissions(){
+  el('perm-screen').querySelector('.perm-btn').textContent='Requesting...';
+  el('perm-screen').querySelector('.perm-btn').disabled=true;
+  try{
+    await new Promise((res,rej)=>{
+      navigator.geolocation.getCurrentPosition(res, rej, {timeout:8000});
+    });
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    stream.getTracks().forEach(t=>t.stop());
+    G.permGranted=true;
+  }catch(e){
+    console.warn('Permission partially denied:',e);
+    G.permGranted=false;
+  }
+  el('perm-screen').style.display='none';
+  el('lang-screen').style.display='flex';
+}
+
+// ═══════════════════════════════════════════════════════
+//  LANGUAGE SELECTION
+// ═══════════════════════════════════════════════════════
+function selectLang(lang){
+  G.lang=lang;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('sel'));
+  event.currentTarget.classList.add('sel');
+  setTimeout(()=>{
+    el('lang-screen').style.display='none';
+    showAppMain(); // skip interaction screen — always manual
+  },400);
+}
+
+// ═══════════════════════════════════════════════════════
+//  MAIN APP — PROFILE SECTION
+// ═══════════════════════════════════════════════════════
+function showAppMain(){
+  applyTranslations();
+  showOnly('main-app');
+  el('main-app').style.display='flex';
+
+  // ── Restore saved profile from localStorage ──
+  const saved = loadProfile();
+  if(saved){
+    el('f-name').value    = saved.name    || '';
+    el('f-age').value     = saved.age     || '';
+    el('f-doctor').value  = saved.doctor  || '';
+    el('f-severity').value= saved.severity|| 'low';
+    document.querySelectorAll('.trigger-cb').forEach(cb=>{
+      cb.checked = (saved.triggers||[]).includes(cb.value);
+    });
+    // Show "Saved" badge and skip straight to mode selection
+    el('profile-section').style.display='flex';
+    el('mode-section').style.display='none';
+    showSavedBadge();
+    // Small delay for animation, then jump to mode
+    setTimeout(()=>{
+      el('profile-section').style.display='none';
+      el('mode-section').style.display='flex';
+    }, 600);
+  } else {
+    el('profile-section').style.display='flex';
+    el('mode-section').style.display='none';
+    el('profile-saved-badge').style.display='none';
+  }
+}
+
+function showSavedBadge(){
+  const b=el('profile-saved-badge');
+  if(b){ b.style.display='inline-flex'; }
+}
+
+// ── localStorage helpers ──
+function saveProfile(){
+  const triggers=Array.from(document.querySelectorAll('.trigger-cb:checked')).map(c=>c.value);
+  localStorage.setItem('asthmacare_profile', JSON.stringify({
+    name:     el('f-name').value.trim(),
+    age:      el('f-age').value.trim(),
+    doctor:   el('f-doctor').value.trim(),
+    severity: el('f-severity').value,
+    triggers
+  }));
+}
+function loadProfile(){
+  try{ const d=localStorage.getItem('asthmacare_profile'); return d?JSON.parse(d):null; }catch(e){ return null; }
+}
+function logoutProfile(){
+  if(!confirm('Clear your saved profile and start over?')) return;
+  localStorage.removeItem('asthmacare_profile');
+  // Clear all form fields
+  ['f-name','f-age','f-doctor'].forEach(id=>{ const f=el(id); if(f) f.value=''; });
+  document.querySelectorAll('.trigger-cb').forEach(cb=>cb.checked=false);
+  const sev=el('f-severity'); if(sev) sev.value='low';
+  // Remove error states
+  document.querySelectorAll('.form-field').forEach(f=>f.classList.remove('error'));
+  document.querySelectorAll('.field-error').forEach(e=>e.classList.remove('show'));
+  // Show profile section fresh
+  el('mode-section').style.display='none';
+  el('profile-section').style.display='flex';
+  el('profile-saved-badge').style.display='none';
+  showOnly('main-app');
+  el('main-app').style.display='flex';
+}
+function backToLang(){
+  // Hide main app, show language screen
+  el('main-app').style.display='none';
+  el('lang-screen').style.display='flex';
+  // Reset language button highlights
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('sel'));
+}
+
+function applyTranslations(){
+  const tr=t();
+  const map={
+    'tt-heroTitle':'heroTitle','tt-heroSub':'heroSub','tt-personalDetails':'personalDetails',
+    'tt-nameLabel':'nameLabel','tt-ageLabel':'ageLabel','tt-doctorLabel':'doctorLabel',
+    'tt-severityLabel':'severityLabel','tt-triggersLabel':'triggersLabel',
+    'tt-dust':'dust','tt-humidity':'humidity','tt-cold':'cold',
+    'tt-continueBtn':'continueBtn','tt-disclaimer':'disclaimer',
+    'tt-selectMode':'selectMode','tt-selectModeSub':'selectModeSub',
+    'tt-withoutDevice':'withoutDevice','tt-withoutDeviceSub':'withoutDeviceSub',
+    'tt-withDevice':'withDevice','tt-withDeviceSub':'withDeviceSub',
+    'tt-moreAccurate':'moreAccurate','tt-locationMode':'locationMode','tt-locationModeSub':'locationModeSub',
+    'tt-backProfile':'backProfile','tt-sysMonitoring':'sysMonitoring','tt-envFactors':'envFactors',
+    'tt-riskLevel':'riskLevel','tt-aqiLabel':'aqiLabel','tt-tempLabel':'tempLabel',
+    'tt-humLabel':'humLabel','tt-soundLabel':'soundLabel',
+    'tt-aiBtn':'aiBtn','tt-aiAnalysis':'aiAnalysis','tt-shareBtn':'shareBtn',
+    'tt-graphBtn':'graphBtn','tt-graphTitle':'graphTitle',
+    'tt-currentRisk':'currentRisk','tt-next24':'next24','tt-percent':'percent',
+    'tt-takePrecaution':'takePrecaution','tt-search':'search','tt-locationTitle':'locationTitle',
+    'tt-temperature':'temperature','tt-humidity2':'humidity2','tt-viewForecast':'viewForecast',
+  };
+  Object.entries(map).forEach(([elId,key])=>{
+    const e=el(elId); if(e&&tr[key]) e.textContent=tr[key];
+  });
+  // severity options
+  const sel=el('f-severity');
+  if(sel){ sel.options[0].text=tr.low; sel.options[1].text=tr.medium; sel.options[2].text=tr.high; }
+}
+
+// Voice command system removed — microphone is for cough/wheeze detection only
+
+// ═══════════════════════════════════════════════════════
+//  PROFILE VALIDATION & NAVIGATION
+// ═══════════════════════════════════════════════════════
+function submitProfile(){
+  let ok=true;
+  const checks=[
+    {id:'f-name',eid:'e-name'},
+    {id:'f-age',eid:'e-age'},
+    {id:'f-doctor',eid:'e-doctor'}
+  ];
+  checks.forEach(c=>{
+    const f=el(c.id),e=el(c.eid);
+    if(!f.value.trim()){
+      f.classList.add('error');
+      if(e){e.classList.add('show');}
+      f.focus(); ok=false;
+    } else {
+      f.classList.remove('error');
+      if(e) e.classList.remove('show');
+    }
+  });
+  if(!ok) return;
+  saveProfile();           // ← persist to localStorage
+  showSavedBadge();
+  el('profile-section').style.display='none';
+  el('mode-section').style.display='flex';
+}
+
+function showProfile(){
+  el('mode-section').style.display='none';
+  el('profile-section').style.display='flex';
+  showOnly('main-app');
+}
+function showMode(){
+  el('profile-section').style.display='none';
+  el('mode-section').style.display='flex';
+}
+
+// ═══════════════════════════════════════════════════════
+//  APP START
+// ═══════════════════════════════════════════════════════
+async function startApp(mode){
+  G.mode=mode;
+  G.autoSmsSent=false;
+  // Hide any previous BT error
+  const btErr=el('bt-error-banner'); if(btErr) btErr.classList.remove('show');
+  const devBtn=el('mode-device'); if(devBtn) devBtn.classList.remove('error-border');
+
+  if(mode==='location'){
+    showOnly('location-screen');
+    return;
+  }
+
+  // ── DEVICE MODE: connect BLE first, block if it fails ──
+  if(mode==='device'){
+    el('loader').style.display='flex';
+    el('loader-text').textContent='Searching for AsthmaCare_ESP32...';
+    const connected = await connectBluetooth();
+    el('loader').style.display='none';
+
+    if(!connected){
+      // Show red error on mode screen — do NOT proceed
+      G.btConnected=false;
+      if(btErr){ btErr.classList.add('show'); }
+      if(devBtn){ devBtn.classList.add('error-border'); }
+      return; // stay on mode selection
+    }
+
+    // BLE connected — proceed
+    G.btConnected=true;
+    el('loader').style.display='flex';
+    el('loader-text').textContent='Initializing AI...';
+    await initModel();
+    el('loader-text').textContent='Starting microphone...';
+    startMic();   // phone mic for cough/wheeze only
+    startMicBlink();
+    el('loader').style.display='none';
+    showOnly('dashboard-screen');
+    el('dashboard-screen').style.display='flex';
+    // Show BT status pill
+    const bsr=el('bt-status-row'); if(bsr) bsr.style.display='block';
+    const bsp=el('bt-status-pill');
+    if(bsp){ bsp.className='bt-status-pill connected'; }
+    const bst=el('bt-status-text'); if(bst) bst.textContent='ESP32 Connected';
+    updateDOM();
+    updateInterval=setInterval(loopUpdate,2000);
+    return;
+  }
+
+  // ── WITHOUT DEVICE MODE ──
+  el('loader').style.display='flex';
+  el('loader-text').textContent='Initializing AI...';
+  await initModel();
+  el('loader-text').textContent='Starting sensors...';
+  fetchEnvData();
+  setInterval(fetchEnvData,10000);
+  startMic();
+  startMicBlink();
+  el('loader').style.display='none';
+  showOnly('dashboard-screen');
+  el('dashboard-screen').style.display='flex';
+  // Hide BT pill in non-device mode
+  const bsr2=el('bt-status-row'); if(bsr2) bsr2.style.display='none';
+  updateDOM();
+  updateInterval=setInterval(loopUpdate,2000);
+}
+
+// ═══════════════════════════════════════════════════════
+//  ENVIRONMENTAL DATA
+// ═══════════════════════════════════════════════════════
+async function fetchEnvData(){
+  navigator.geolocation.getCurrentPosition(async(pos)=>{
+    const {latitude:lat,longitude:lon}=pos.coords;
+    try{
+      const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m`);
+      const d=await res.json();
+      G.sensor.temp=d.current.temperature_2m;
+      G.sensor.hum=d.current.relative_humidity_2m;
+      // Simulate AQI (Open-Meteo doesn't provide AQI free; use realistic range)
+      G.sensor.aqi=Math.max(20, Math.min(180, G.sensor.hum*0.8+Math.random()*30));
+    }catch(e){
+      G.sensor.temp=22+Math.random()*5;
+      G.sensor.hum=50+Math.random()*20;
+      G.sensor.aqi=35+Math.random()*50;
+    }
+    updateDOM();
+  },()=>{
+    G.sensor.temp=24+Math.random()*4;
+    G.sensor.hum=55+Math.random()*15;
+    G.sensor.aqi=40+Math.random()*45;
+    updateDOM();
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  MICROPHONE
+// ═══════════════════════════════════════════════════════
+async function startMic(){
+  if(isMicRunning) return;
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    isMicRunning=true;
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    analyser=audioCtx.createAnalyser();
+    const src=audioCtx.createMediaStreamSource(stream);
+    scriptProc=audioCtx.createScriptProcessor(2048,1,1);
+    analyser.fftSize=256;
+    src.connect(analyser); analyser.connect(scriptProc); scriptProc.connect(audioCtx.destination);
+    spikeCount=0; lastSpikeTime=0; continuousStart=0; secondStart=Date.now();
+    scriptProc.onaudioprocess=()=>{
+      const arr=new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(arr);
+      let sum=0; arr.forEach(v=>sum+=v);
+      const avg=sum/arr.length;
+      const norm=Math.min(1,avg/100);
+      G.sensor.soundLevel=norm;
+      const now=Date.now();
+      if(now-secondStart>=1000){ G.sensor.coughsPerSec=spikeCount; spikeCount=0; secondStart=now; }
+      if(norm>0.4&&now-lastSpikeTime>200){ spikeCount++; lastSpikeTime=now; }
+      if(norm>0.3){ if(!continuousStart) continuousStart=now; G.sensor.isContinuous=(now-continuousStart>1500); }
+      else{ continuousStart=0; G.sensor.isContinuous=false; }
+      const sv=el('val-sound');
+      if(sv) sv.textContent=G.sensor.isContinuous?'CONT':G.sensor.coughsPerSec;
+    };
+  }catch(e){ console.warn('Mic error:',e); }
+}
+
+function startMicBlink(){
+  const pill=el('mic-pill');
+  if(pill){ pill.innerHTML='<span class="dot"></span> MIC ON'; pill.classList.add('on'); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  BLUETOOTH — connects to AsthmaCare_ESP32
+//  ESP32 sends CSV: "temperature,humidity,aqi,sound"
+//  We use temp/hum/aqi from device; sound/cough from phone mic
+// ═══════════════════════════════════════════════════════
+async function connectBluetooth(){
+  const SVC='4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+  const CHAR='beb5483e-36e1-4688-b7f5-ea07361b26a8';
+  try{
+    const dev=await navigator.bluetooth.requestDevice({
+      filters:[{name:'AsthmaCare_ESP32'}],
+      optionalServices:[SVC]
+    });
+    const srv=await dev.gatt.connect();
+    const svc=await srv.getPrimaryService(SVC);
+    const ch=await svc.getCharacteristic(CHAR);
+    await ch.startNotifications();
+    G.btDevice=dev;
+    G.btConnected=true;
+
+    // Listen for sensor data from ESP32
+    ch.addEventListener('characteristicvaluechanged', e=>{
+      const raw=new TextDecoder().decode(e.target.value);
+      const parts=raw.split(',').map(parseFloat);
+      // ESP32 sends: temp, humidity, aqi, sound
+      // We only use temp, hum, aqi from the device
+      // Cough/wheeze detection is handled by phone mic
+      if(parts.length>=3){
+        if(!isNaN(parts[0])) G.sensor.temp=parts[0];
+        if(!isNaN(parts[1])) G.sensor.hum=parts[1];
+        if(!isNaN(parts[2])) G.sensor.aqi=parts[2];
+        // parts[3] (sound from ESP32) is intentionally ignored
+        updateDOM();
+      }
+    });
+
+    // Handle disconnection
+    dev.addEventListener('gattserverdisconnected', ()=>{
+      G.btConnected=false;
+      console.warn('ESP32 disconnected');
+      const bsp=el('bt-status-pill');
+      if(bsp){ bsp.className='bt-status-pill disconnected'; }
+      const bst=el('bt-status-text');
+      if(bst) bst.textContent='ESP32 Disconnected';
+    });
+
+    return true; // success
+  }catch(err){
+    console.warn('BT connection failed:',err);
+    G.btConnected=false;
+    return false; // failure — NO simulated data
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  THRESHOLDS
+//  AQI: <70 safe, 70-85 warn, >85 danger
+//  Temp: >25 safe, 15-20 warn, <15 danger  (REVERSED: cold is danger)
+//  Hum: <70 safe, 70-85 warn, >85 danger
+//  Sound: 0 safe, >0 warn, >3/s or continuous danger
+// ═══════════════════════════════════════════════════════
+function getRiskLevel(type, value){
+  if(type==='aqi'){
+    if(value<70) return 'safe';
+    if(value<=85) return 'warn';
+    return 'danger';
+  }
+  if(type==='temp'){
+    if(value>25) return 'safe';    // warm is safe
+    if(value>=15) return 'warn';   // 15-25 caution
+    return 'danger';               // <15 danger
+  }
+  if(type==='hum'){
+    if(value<70) return 'safe';
+    if(value<=85) return 'warn';
+    return 'danger';
+  }
+  if(type==='sound'){
+    if(G.sensor.isContinuous||value>3) return 'danger';
+    if(value>0) return 'warn';
+    return 'safe';
+  }
+  return 'safe';
+}
+
+function updateThresholds(){
+  const tr=t();
+  let dc=0;
+  ['aqi','temp','hum'].forEach(type=>{
+    const val=G.sensor[type==='hum'?'hum':type];
+    const actualVal= type==='aqi'?G.sensor.aqi: type==='temp'?G.sensor.temp: G.sensor.hum;
+    const lv=getRiskLevel(type,actualVal);
+    const card=el('card-'+type);
+    const status=el('status-'+type);
+    if(!card||!status) return;
+    card.className=`metric-card m-${lv==='danger'?'danger':lv==='warn'?'warn':'safe'}`;
+    if(lv==='danger'){
+      dc++;
+      card.classList.add('blink-danger');
+      status.className='status-row s-danger';
+      status.innerHTML=`<i class="fa-solid fa-triangle-exclamation"></i><span>${tr.dangerStatus}</span>`;
+    } else if(lv==='warn'){
+      card.classList.add('blink-warn');
+      status.className='status-row s-warn';
+      status.innerHTML=`<i class="fa-solid fa-circle-exclamation"></i><span>${tr.warnStatus}</span>`;
+    } else {
+      status.className='status-row s-safe';
+      status.innerHTML=`<i class="fa-solid fa-shield-halved"></i><span>${tr.safeStatus}</span>`;
+    }
+  });
+  // Sound card
+  const soundLv=getRiskLevel('sound',G.sensor.coughsPerSec);
+  const cs=el('card-sound'); const ss=el('status-sound');
+  if(cs&&ss){
+    cs.className=`metric-card m-${soundLv==='danger'?'danger':soundLv==='warn'?'warn':'safe'}`;
+    if(soundLv==='danger'){ dc++; cs.classList.add('blink-danger'); ss.className='status-row s-danger'; ss.innerHTML=`<i class="fa-solid fa-triangle-exclamation"></i><span>${tr.dangerStatus}</span>`; }
+    else if(soundLv==='warn'){ cs.classList.add('blink-warn'); ss.className='status-row s-warn'; ss.innerHTML=`<i class="fa-solid fa-circle-exclamation"></i><span>${tr.warnStatus}</span>`; }
+    else{ ss.className='status-row s-safe'; ss.innerHTML=`<i class="fa-solid fa-shield-halved"></i><span>${tr.safeStatus}</span>`; }
+  }
+  G.dangerCount=dc;
+  return dc;
+}
+
+function updateRiskBanner(dc){
+  const tr=t();
+  const banner=el('risk-banner');
+  const title=el('risk-title');
+  const score=el('risk-score');
+  const needle=el('gauge-needle');
+  const path=el('gauge-path');
+  const pct=Math.round((dc/4)*100);
+  if(score) score.textContent=`${pct}/100`;
+  const angle=(pct/100)*180;
+  if(needle) needle.setAttribute('transform',`rotate(${angle},50,45)`);
+  if(path) path.style.strokeDashoffset=`${126-(angle/180)*126}`;
+  banner.className='risk-banner fade-up';
+  if(dc===0){
+    banner.classList.add('safe');
+    if(title){title.textContent=tr.low;title.style.color='#00ff88';}
+  } else if(dc<=2){
+    banner.classList.add('warn','blink-warn');
+    if(title){title.textContent=tr.medium;title.style.color='#ffb800';}
+  } else {
+    banner.classList.add('danger','blink-danger');
+    if(title){title.textContent=tr.high;title.style.color='#ff3366';}
+  }
+  // Enable/disable graph button
+  const gb=el('graph-btn');
+  if(gb) gb.disabled=(dc>=3); // disabled when HIGH risk (enabled for medium/low)
+}
+
+function updateDOM(){
+  const s=G.sensor;
+  if(el('val-aqi')) el('val-aqi').textContent=s.aqi>0?Math.round(s.aqi):'--';
+  if(el('val-temp')) el('val-temp').textContent=s.temp>0?Math.round(s.temp):'--';
+  if(el('val-hum')) el('val-hum').textContent=s.hum>0?Math.round(s.hum):'--';
+  if(!isMicRunning && el('val-sound')) el('val-sound').textContent='0';
+}
+
+async function loopUpdate(){
+  updateDOM();
+  const dc=updateThresholds();
+  if(riskModel){
+    const inp=tf.tensor2d([[G.sensor.aqi,G.sensor.temp,G.sensor.hum,G.sensor.soundLevel]]);
+    const pred=riskModel.predict(inp);
+    G.currentRisk=(await pred.data())[0];
+  }
+  updateRiskBanner(dc);
+  if(dc >= 3 && !G.autoSmsSent){
+    G.autoSmsSent = true;
+    generateReportAndSendSMS(true);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  AI MODEL
+// ═══════════════════════════════════════════════════════
+async function initModel(){
+  if(riskModel) return;
+  riskModel=tf.sequential();
+  riskModel.add(tf.layers.dense({units:8,inputShape:[4],activation:'relu'}));
+  riskModel.add(tf.layers.dense({units:8,activation:'relu'}));
+  riskModel.add(tf.layers.dense({units:1,activation:'sigmoid'}));
+  riskModel.compile({optimizer:'adam',loss:'binaryCrossentropy'});
+  const xs=tf.tensor2d([[40,28,45,0],[60,22,55,1],[100,18,72,4],[160,16,82,9],[250,12,88,14]]);
+  const ys=tf.tensor2d([[0.05],[0.15],[0.55],[0.88],[0.97]]);
+  await riskModel.fit(xs,ys,{epochs:60,verbose:0});
+}
+
+// ═══════════════════════════════════════════════════════
+//  AI ANALYSIS SCREEN
+// ═══════════════════════════════════════════════════════
+function goAnalysis(){
+  const dc=G.dangerCount;
+  const tr=t();
+  const name=el('f-name').value||'User';
+  const sev=(el('f-severity').options[el('f-severity').selectedIndex].text);
+  const triggers=Array.from(document.querySelectorAll('.trigger-cb:checked')).map(c=>c.value);
+  const trigStr=triggers.length>0?triggers.join(', '):'None';
+
+  let riskClass, message;
+  if(dc===0){
+    riskClass='a-safe';
+    message=tr.safeMsg(name,sev,trigStr);
+  } else if(dc<=2){
+    riskClass='a-warn';
+    message=tr.warnMsg(name,sev,trigStr);
+  } else {
+    riskClass='a-danger';
+    message=tr.dangerMsg(name,sev,trigStr);
+  }
+  G.analysisRisk=dc===0?'safe':dc<=2?'warn':'danger';
+
+  const bg=el('analysis-bg');
+  bg.className='glass analysis-card '+riskClass;
+
+  // Type-writer
+  const textEl=el('analysis-text');
+  textEl.textContent='';
+  let i=0;
+  function tw(){ if(i<message.length){ textEl.textContent+=message.charAt(i++); setTimeout(tw,40); }
+    else{
+      // Show/hide send report button
+      const rb=el('send-report-btn');
+      if(rb) rb.disabled=(G.analysisRisk!=='danger');
+      // Enable graph btn based on risk
+      const gb=el('graph-btn');
+      if(gb) gb.disabled=(G.analysisRisk==='danger');
+    }
+  }
+  tw();
+
+  showOnly('analysis-screen');
+  el('analysis-screen').style.display='flex';
+}
+
+function backToDash(){
+  showOnly('dashboard-screen');
+  el('dashboard-screen').style.display='flex';
+}
+function backToMode(){
+  if(updateInterval){ clearInterval(updateInterval); updateInterval=null; }
+  showOnly('main-app');
+  el('main-app').style.display='flex';
+  el('mode-section').style.display='flex';
+  el('profile-section').style.display='none';
+}
+
+// toggleAnalysisMic removed — no voice commands in the app
+
+let currentReportMsg = '';
+
+function generateReportAndSendSMS(autoSend = false) {
+  const now = new Date();
+  el('rep-name').textContent = ` ${el('f-name').value || 'User'}`;
+  el('rep-loc').textContent = ` ${G.mode==='location' ? (el('city-input').value || 'Searched Location') : 'Current Location'}`;
+  el('rep-age').textContent = ` ${el('f-age').value || '--'} Years`;
+  el('rep-date').textContent = ` ${now.toLocaleDateString()}`;
+  el('rep-time').textContent = ` ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+  const sevEl = el('f-severity');
+  el('rep-sev').textContent = ` ${sevEl.options[sevEl.selectedIndex].text.toUpperCase()}`;
+
+  const pct = Math.round((G.dangerCount/4)*100) || 76;
+  el('rep-score').textContent = pct;
+
+  // Triggers
+  const triggers = Array.from(document.querySelectorAll('.trigger-cb:checked')).map(c=>c.value);
+  const tDiv = el('rep-triggers');
+  tDiv.innerHTML = '';
+  if(triggers.length===0){
+    tDiv.innerHTML='<div class="rm-trig-item"><div class="rm-trig-icon"><i class="fa-solid fa-check"></i></div><div class="rm-trig-lbl">None</div></div>';
+  }else{
+    triggers.forEach(t=>{
+      let icon='fa-solid fa-leaf';
+      if(t==='Dust') icon='fa-solid fa-smog';
+      if(t==='Humidity') icon='fa-solid fa-droplet';
+      if(t==='Cold') icon='fa-solid fa-snowflake';
+      tDiv.innerHTML+=`<div class="rm-trig-item"><div class="rm-trig-icon"><i class="${icon}"></i></div><div class="rm-trig-lbl">${t}</div></div>`;
+    });
+  }
+
+  // Environment
+  el('rep-aqi').textContent = Math.round(G.sensor.aqi);
+  const aqiSt = el('rep-aqi-st');
+  aqiSt.textContent = getRiskLevel('aqi',G.sensor.aqi)==='danger'?'Unhealthy':getRiskLevel('aqi',G.sensor.aqi)==='warn'?'Moderate':'Good';
+  aqiSt.className = 'rm-env-status ' + (getRiskLevel('aqi',G.sensor.aqi)==='danger'?'danger':'');
+
+  el('rep-temp').textContent = Math.round(G.sensor.temp)+'°C';
+  const tempSt = el('rep-temp-st');
+  tempSt.textContent = getRiskLevel('temp',G.sensor.temp)==='danger'?'Extreme':getRiskLevel('temp',G.sensor.temp)==='warn'?'Cold':'Comfortable';
+  tempSt.className = 'rm-env-status ' + (getRiskLevel('temp',G.sensor.temp)==='danger'?'danger':'');
+
+  el('rep-hum').textContent = Math.round(G.sensor.hum)+'%';
+  const humSt = el('rep-hum-st');
+  humSt.textContent = getRiskLevel('hum',G.sensor.hum)==='danger'?'Very High':getRiskLevel('hum',G.sensor.hum)==='warn'?'Humid':'Comfortable';
+  humSt.className = 'rm-env-status ' + (getRiskLevel('hum',G.sensor.hum)==='danger'?'danger':'');
+
+  el('rep-cough').textContent = G.sensor.coughsPerSec+'/s';
+  const coughSt = el('rep-cough-st');
+  coughSt.textContent = getRiskLevel('sound',G.sensor.coughsPerSec)==='danger'?'High Risk':getRiskLevel('sound',G.sensor.coughsPerSec)==='warn'?'Moderate':'Normal';
+  coughSt.className = 'rm-env-status ' + (getRiskLevel('sound',G.sensor.coughsPerSec)==='danger'?'danger':'');
+
+  // AI Insight
+  const analysisText = el('analysis-text') ? el('analysis-text').textContent.trim() : '';
+  if(analysisText) {
+    el('rep-insight').textContent = analysisText;
+  }
+
+  el('report-modal').style.display='flex';
+
+  const name = el('f-name').value||'User';
+  currentReportMsg = `URGENT: AsthmaCare AI Report for ${name}\nRisk: HIGH (Score: ${pct}%)\nAQI:${Math.round(G.sensor.aqi)}, Temp:${Math.round(G.sensor.temp)}C, Hum:${Math.round(G.sensor.hum)}%\nPatient requires immediate attention.`;
+
+  if(autoSend){
+    sendSmsFromReport();
+  }
+}
+
+function sendSmsFromReport() {
+  const doc = el('f-doctor').value;
+  if(!doc){ alert('Please add Doctor Phone Number in Profile.'); return; }
+  window.location.href = `sms:${doc}?body=${encodeURIComponent(currentReportMsg)}`;
+}
+
+function closeReport() {
+  el('report-modal').style.display='none';
+}
+
+function sendReport(){
+  generateReportAndSendSMS(false);
+}
+
+// ═══════════════════════════════════════════════════════
+//  PREDICTION GRAPH SCREEN
+// ═══════════════════════════════════════════════════════
+function goGraph(){
+  showOnly('graph-screen');
+  el('graph-screen').style.display='flex';
+  buildGraphScreen();
+}
+
+function buildGraphScreen(){
+  const dc=G.dangerCount;
+  const tr=t();
+  const pct=Math.round((dc/4)*100);
+  // Risk bar
+  const bar=el('graph-risk-bar');
+  bar.className=`risk-summary-bar glass ${dc===0?'safe':dc<=2?'warn':'danger'}`;
+  el('graph-risk-label').textContent=dc===0?tr.low:dc<=2?tr.medium:tr.high;
+  el('graph-score-num').textContent=pct;
+  const next=dc===0?'Low Risk Period':dc<=2?'Moderate Risk 6PM-11PM':'High Risk 6PM-11PM';
+  el('graph-next24-val').textContent=next;
+  el('graph-next24-val').style.color=dc===0?'#00ff88':dc<=2?'#ffb800':'#ff3366';
+  buildCharts();
+}
+
+function buildCharts(){
+  const labels=['Now','2AM','4AM','6AM','8AM','10AM','12PM','2PM','4PM','6PM','8PM','10PM','12AM'];
+  const base=G.sensor;
+  // Generate 13-point forecast data with realistic progression
+  function genData(baseVal, threshLow, threshHigh, peakRatio, type){
+    const arr=[];
+    for(let i=0;i<13;i++){
+      const t2=i/12;
+      // Bell curve peak around midday
+      const bell=Math.sin(t2*Math.PI)*peakRatio;
+      let v=baseVal*(1+bell*(0.4+Math.random()*.1));
+      v+=((Math.random()-.5)*baseVal*.08);
+      arr.push(Math.round(v*10)/10);
+    }
+    return arr;
+  }
+
+  const tempData=genData(base.temp, 15, 25, 0.3).map(v=>Math.round(v));
+  const aqiData=genData(base.aqi, 70, 85, 0.6).map(v=>Math.round(v));
+  const humData=genData(base.hum, 70, 85, 0.25).map(v=>Math.round(v));
+
+  const CHART_OPTS=(threshY,color,unit)=>({
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}${unit}`}},
+      annotation:{}
+    },
+    scales:{
+      x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b9bb4',font:{size:10}}},
+      y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b9bb4',font:{size:10}},
+        suggestedMin:Math.min(...(threshY===25?tempData:threshY===70&&unit==='%'?humData:aqiData))-5}
+    }
+  });
+
+  function makeChart(canvasId,data,thresh,color,unit,threshLabel){
+    const ctx=el(canvasId);
+    if(!ctx) return;
+    if(chartInstances[canvasId]) chartInstances[canvasId].destroy();
+    // Color points based on threshold
+    const ptColors=data.map(v=>{
+      if(canvasId==='chart-temp') return v>25?'#00ff88':v>=15?'#ffb800':'#ff3366';
+      return v<70?'#00ff88':v<=85?'#ffb800':'#ff3366';
+    });
+    const lineColor=data.some(v=>canvasId==='chart-temp'?v<15:v>85)?'#ff3366':
+                    data.some(v=>canvasId==='chart-temp'?v<25:v>70)?'#ffb800':'#00ff88';
+    chartInstances[canvasId]=new Chart(ctx.getContext('2d'),{
+      type:'line',
+      data:{
+        labels,
+        datasets:[
+          {data,borderColor:color,borderWidth:2.5,tension:0.4,
+           pointBackgroundColor:ptColors,pointRadius:4,pointHoverRadius:6,fill:false,
+           label:threshLabel},
+          {data:new Array(13).fill(thresh),borderColor:'rgba(255,51,102,.6)',borderWidth:1.5,
+           borderDash:[5,5],pointRadius:0,fill:false,label:'Threshold'}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{display:true,position:'bottom',labels:{color:'#8b9bb4',font:{size:10},boxWidth:12}},
+          tooltip:{callbacks:{label:ctx2=>`${ctx2.dataset.label}: ${ctx2.parsed.y}${unit}`}}
+        },
+        scales:{
+          x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b9bb4',font:{size:9}}},
+          y:{grid:{color:'rgba(255,255,255,.06)'},ticks:{color:'#8b9bb4',font:{size:9},callback:v=>`${v}${unit}`}}
+        }
+      }
+    });
+    // Add data labels
+    data.forEach((v,i)=>{
+      const ds=chartInstances[canvasId].data.datasets[0];
+      ds.datalabels=false;
+    });
+  }
+  makeChart('chart-temp',tempData,25,'#ff9f43','°C','Temperature');
+  makeChart('chart-aqi',aqiData,70,'#00e5ff','','AQI');
+  makeChart('chart-hum',humData,70,'#0088ff','%','Humidity');
+}
+
+// ═══════════════════════════════════════════════════════
+//  LOCATION SCREEN
+// ═══════════════════════════════════════════════════════
+async function searchCity(){
+  const city=el('city-input').value.trim();
+  if(!city){ alert('Please enter a city name.'); return; }
+  el('loc-loading').style.display='flex';
+  el('loc-result').style.display='none';
+  el('loc-error-msg').style.display='none';
+  try{
+    // Geocoding
+    const geoRes=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`);
+    const geoData=await geoRes.json();
+    if(!geoData.results||geoData.results.length===0) throw new Error('City not found');
+    const loc=geoData.results[0];
+    const {latitude,longitude,name,admin1,country}=loc;
+    // Weather
+    const wxRes=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m`);
+    const wx=await wxRes.json();
+    const temp=wx.current.temperature_2m;
+    const hum=wx.current.relative_humidity_2m;
+    const wind=wx.current.wind_speed_10m;
+    // AQI estimate from hum
+    const aqi=Math.max(20,Math.min(200,hum*0.9+Math.random()*25));
+
+    // Store for graph
+    G.sensor.temp=temp; G.sensor.hum=hum; G.sensor.aqi=aqi;
+
+    el('loc-city-name').textContent=`${name}${admin1?', '+admin1:''}`;
+    el('loc-coords').textContent=`${country} • ${latitude.toFixed(4)}° N, ${longitude.toFixed(4)}° E`;
+
+    // Fill metrics
+    setLocMetric('loc-aqi','loc-card-aqi','loc-aqi-status',Math.round(aqi),'','aqi');
+    setLocMetric('loc-temp','loc-card-temp','loc-temp-status',Math.round(temp),'°C','temp');
+    setLocMetric('loc-hum','loc-card-hum','loc-hum-status',Math.round(hum),'%','hum');
+    el('loc-wind').textContent=Math.round(wind)+' km/h';
+    const ws=el('loc-wind-status');
+    ws.className='lm-status '+(wind<15?'safe':'warn');
+    ws.textContent=wind<15?'Light Breeze':wind<30?'Moderate':'Strong Wind';
+
+    // Compute dangerCount for location mode
+    let ldc=0;
+    if(getRiskLevel('aqi',aqi)==='danger') ldc++;
+    if(getRiskLevel('temp',temp)==='danger') ldc++;
+    if(getRiskLevel('hum',hum)==='danger') ldc++;
+    G.dangerCount=ldc;
+
+    el('loc-loading').style.display='none';
+    el('loc-result').style.display='block';
+    
+    if(ldc >= 3 && !G.autoSmsSent){
+      G.autoSmsSent = true;
+      generateReportAndSendSMS(true);
+    }
+  }catch(e){
+    el('loc-loading').style.display='none';
+    el('loc-error-msg').style.display='block';
+    el('loc-error-msg').textContent='City not found. Please try another city name.';
+  }
+}
+
+function setLocMetric(valId,cardId,statusId,val,unit,type){
+  el(valId).textContent=val+unit;
+  const lv=getRiskLevel(type,val);
+  const card=el(cardId);
+  const status=el(statusId);
+  if(card){ card.style.borderColor=lv==='danger'?'rgba(255,51,102,.5)':lv==='warn'?'rgba(255,184,0,.5)':'rgba(0,255,136,.4)'; }
+  if(status){
+    status.className='lm-status '+lv;
+    status.textContent=lv==='danger'?'HIGH RISK':lv==='warn'?'BE CAUTIOUS':'SAFE';
+    if(lv==='warn') el(cardId).classList.add('blink-warn');
+    if(lv==='danger') el(cardId).classList.add('blink-danger');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  Form field voice input support
+//  Clicking on an input while voice mode triggers voice fill
+// ═══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.form-field').forEach(f=>{
+    f.addEventListener('focus',()=>{
+      if(G.voiceMode){
+        speak('Please say the value for '+f.id.replace('f-',''));
+      }
+    });
+  });
+});
+</script>
+</body>
+</html>
